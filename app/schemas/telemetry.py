@@ -7,7 +7,5 @@ class TelemetryCreate(BaseModel):
     moisture_lvl: int
     uptime: int
 
-class TelemetryResponse(TelemetryCreate):
-    id: int
-    user_id: str
-    timestamp: int
+class TelemetryStatusResponse(BaseModel):
+    status: str

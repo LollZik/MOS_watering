@@ -41,9 +41,4 @@ class TelemetryService:
             logger.error(f"Błąd DB podczas zapisu telemetrii: {e}")
             raise e
 
-        return {
-            "id": 0, # Pole zdefiniowane w response_model, ale w TSDB nie używamy sztucznego ID dla telemetrii
-            "user_id": "system",
-            "timestamp": int(current_time.timestamp()),
-            **telemetry.model_dump()
-        }
+        return {"status": "ok"}
