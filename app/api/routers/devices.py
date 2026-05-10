@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, status
 from typing import Optional
 from schemas.device import WaterCommandRequest
 from services.command_service import CommandService
-from api.dependencies import get_command_service
+from api.dependencies import get_command_service, verify_api_key
 
 router = APIRouter(prefix="/users/{user_id}/devices", tags=["Devices"])
 
@@ -11,7 +11,8 @@ async def trigger_water(
     user_id: str,
     device_id: str,
     command: Optional[WaterCommandRequest] = None,
-    command_service: CommandService = Depends(get_command_service)
+    command_service: CommandService = Depends(get_command_service),
+    api_key: str = Depends(verify_api_key)
 ):
     duration = command.duration_sec if command and command.duration_sec is not None else 10
     
