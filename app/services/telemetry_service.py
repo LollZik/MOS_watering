@@ -75,9 +75,9 @@ class TelemetryService:
                 d.created_at,
                 d.group_id,
                 g.name AS group_name,
-                t.moisture_lvl,
-                t.battery_lvl,
-                t.water_lvl,
+                ROUND((t.moisture_lvl / 65535.0) * 100, 1) AS moisture_lvl,
+                ROUND((t.battery_lvl  / 65535.0) * 100, 1) AS battery_lvl,
+                ROUND((t.water_lvl    / 65535.0) * 100, 1) AS water_lvl,
                 t.time AS last_seen
             FROM devices d
             LEFT JOIN device_groups g ON g.id = d.group_id AND g.user_id = d.user_id
