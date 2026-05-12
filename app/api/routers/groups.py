@@ -5,9 +5,10 @@ from typing import Annotated, List
 import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from api.dependencies import get_db_session
+from api.dependencies import get_db_session, get_command_service
 from core.security import get_current_user_id
 from schemas.group import DeviceAssignment, GroupCreate, GroupDetail, GroupUpdate
+from services.command_service import CommandService
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +67,65 @@ def _row_to_group_detail(row):
     return GroupDetail(**row_dict)
 
 
+async def _fetch_group_devices(db: asyncpg.Connection, group_id: int, user_id: int) -> List[str]:
+    """Fetch list of device IDs in a group."""
+    rows = await db.fetch(
+        "SELECT device_id FROM devices WHERE group_id = $1 AND user_id = $2",
+        group_id,
+        user_id,
+    )
+    return [row["device_id"] for row in rows]
+
+
+async def _publish_group_settings_to_devices(
+    db: asyncpg.Connection,
+    command_service: CommandService,
+    group_id: int,
+    user_id: int,
+    moisture_threshold: int,
+    watering_duration: int,
+):
+    """Apply group settings to all devices in the group and publish commands."""
+    device_ids = await _fetch_group_devices(db, group_id, user_id)
+    
+    if not device_ids:
+        logger.info(f"Grupa {group_id} nie ma żadnych urządzeń, pominięcie publikowania komend")
+        return
+    
+    logger.info(f"Publikowanie ustawień grupy {group_id} do {len(device_ids)} urządzeń")
+    
+    # Update device settings in database
+    await db.execute(
+        """
+        UPDATE devices 
+        SET moisture_threshold_percent = $1, water_duration_sec = $2
+        WHERE group_id = $3 AND user_id = $4
+        """,
+        moisture_threshold,
+        watering_duration,
+        group_id,
+        user_id,
+    )
+    
+    # Publish commands to devices
+    for device_id in device_ids:
+        try:
+            await command_service.send_watering_time_command(
+                user_id=str(user_id),
+                device_id=device_id,
+                time_ms=watering_duration * 1000
+            )
+            await command_service.send_watering_threshold_command(
+                user_id=str(user_id),
+                device_id=device_id,
+                threshold_percent=moisture_threshold
+            )
+            logger.info(f"Opublikowano ustawienia grupy do urządzenia {device_id}")
+        except Exception:
+            logger.exception(f"Błąd publikowania ustawień grupy do urządzenia {device_id}")
+            raise
+
+
 @router.get("", response_model=List[GroupDetail])
 async def list_groups(
     db: Annotated[asyncpg.Connection, Depends(get_db_session)],
@@ -111,6 +171,7 @@ async def list_groups(
 async def create_group(
     body: GroupCreate,
     db: Annotated[asyncpg.Connection, Depends(get_db_session)],
+    command_service: Annotated[CommandService, Depends(get_command_service)],
     current_user_id: Annotated[int, Depends(get_current_user_id)],
 ):
     logger.info(
@@ -149,6 +210,20 @@ async def create_group(
                     current_user_id,
                 )
                 logger.info(f"Przypisano urządzenie '{body.device_id}' do nowej grupy {group_id}")
+                
+                # Apply group settings to device and publish commands
+                await command_service.send_watering_time_command(
+                    user_id=str(current_user_id),
+                    device_id=body.device_id,
+                    time_ms=body.watering_duration_sec * 1000
+                )
+                await command_service.send_watering_threshold_command(
+                    user_id=str(current_user_id),
+                    device_id=body.device_id,
+                    threshold_percent=body.moisture_threshold_percent
+                )
+                logger.info(f"Opublikowano ustawienia grupy do urządzenia {body.device_id}")
+                
     except asyncpg.UniqueViolationError:
         logger.warning(f"Odrzucono tworzenie grupy: grupa '{group_name}' już istnieje dla usera {current_user_id}")
         raise HTTPException(status_code=409, detail="Grupa o takiej nazwie już istnieje.")
@@ -172,6 +247,7 @@ async def update_group(
     group_id: int,
     body: GroupUpdate,
     db: Annotated[asyncpg.Connection, Depends(get_db_session)],
+    command_service: Annotated[CommandService, Depends(get_command_service)],
     current_user_id: Annotated[int, Depends(get_current_user_id)],
 ):
     logger.info(f"Aktualizacja grupy {group_id} (user {current_user_id}): {body.model_dump(exclude_none=True)}")
@@ -202,21 +278,40 @@ async def update_group(
         else existing["watering_duration_sec"]
     )
 
+    # Check if settings changed (to determine if we need to publish commands)
+    settings_changed = (
+        body.moisture_threshold_percent is not None or
+        body.watering_duration_sec is not None
+    )
+
     try:
-        await db.execute(
-            """
-            UPDATE device_groups
-            SET name = $1,
-                moisture_threshold_percent = $2,
-                watering_duration_sec = $3
-            WHERE id = $4 AND user_id = $5
-            """,
-            new_name,
-            new_moisture,
-            new_duration,
-            group_id,
-            current_user_id,
-        )
+        async with db.transaction():
+            await db.execute(
+                """
+                UPDATE device_groups
+                SET name = $1,
+                    moisture_threshold_percent = $2,
+                    watering_duration_sec = $3
+                WHERE id = $4 AND user_id = $5
+                """,
+                new_name,
+                new_moisture,
+                new_duration,
+                group_id,
+                current_user_id,
+            )
+            
+            # If settings changed, apply them to all devices in the group
+            if settings_changed:
+                await _publish_group_settings_to_devices(
+                    db,
+                    command_service,
+                    group_id,
+                    current_user_id,
+                    new_moisture,
+                    new_duration,
+                )
+                
     except asyncpg.UniqueViolationError:
         logger.warning(
             f"Odrzucono aktualizację grupy {group_id}: nazwa '{new_name}' już istnieje dla usera {current_user_id}"
@@ -259,11 +354,12 @@ async def assign_device_to_group(
     group_id: int,
     device_id: str,
     db: Annotated[asyncpg.Connection, Depends(get_db_session)],
+    command_service: Annotated[CommandService, Depends(get_command_service)],
     current_user_id: Annotated[int, Depends(get_current_user_id)],
 ):
     logger.info(f"Próba przypisania urządzenia '{device_id}' do grupy {group_id} (user {current_user_id})")
     group = await db.fetchrow(
-        "SELECT id FROM device_groups WHERE id = $1 AND user_id = $2",
+        "SELECT id, moisture_threshold_percent, watering_duration_sec FROM device_groups WHERE id = $1 AND user_id = $2",
         group_id,
         current_user_id,
     )
@@ -276,12 +372,42 @@ async def assign_device_to_group(
         logger.warning(f"Nie znaleziono urządzenia '{device_id}' (przypisanie do grupy {group_id}) dla usera {current_user_id}")
         raise HTTPException(status_code=404, detail="Urządzenie nie istnieje.")
 
-    await db.execute(
-        "UPDATE devices SET group_id = $1 WHERE device_id = $2 AND user_id = $3",
-        group_id,
-        device_id,
-        current_user_id,
-    )
+    async with db.transaction():
+        await db.execute(
+            "UPDATE devices SET group_id = $1 WHERE device_id = $2 AND user_id = $3",
+            group_id,
+            device_id,
+            current_user_id,
+        )
+        logger.info(f"Przypisano urządzenie '{device_id}' do grupy {group_id} w bazie danych")
+        
+        # Apply group settings to device and publish commands
+        await command_service.send_watering_time_command(
+            user_id=str(current_user_id),
+            device_id=device_id,
+            time_ms=group["watering_duration_sec"] * 1000
+        )
+        await command_service.send_watering_threshold_command(
+            user_id=str(current_user_id),
+            device_id=device_id,
+            threshold_percent=group["moisture_threshold_percent"]
+        )
+        
+        # Update device settings in database
+        await db.execute(
+            """
+            UPDATE devices 
+            SET moisture_threshold_percent = $1, water_duration_sec = $2
+            WHERE device_id = $3 AND user_id = $4
+            """,
+            group["moisture_threshold_percent"],
+            group["watering_duration_sec"],
+            device_id,
+            current_user_id,
+        )
+        
+        logger.info(f"Opublikowano ustawienia grupy do urządzenia {device_id}")
+    
     row = await _fetch_group_row(db, group_id, current_user_id)
     logger.info(f"Przypisano urządzenie '{device_id}' do grupy {group_id} (user {current_user_id})")
     return _row_to_group_detail(row)
