@@ -46,11 +46,13 @@ export default function DeviceAnalytics() {
   const formatTime = (iso: string) => {
     const d = new Date(iso);
     if (timeRange === '24h') return d.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
+    if (timeRange === '7d') return d.toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit' });
     return d.toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit' });
   };
 
+  // keep original ISO in data and format labels on the chart (so tick/tooltip can show time+date)
   const chartData = data.map(p => ({
-    time: formatTime(p.time),
+    time: p.time,
     wilgotnosc: p.moisture_lvl,
     bateria: p.battery_lvl,
     woda: p.water_lvl,
@@ -139,9 +141,9 @@ export default function DeviceAnalytics() {
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis dataKey="time" stroke="#64748b" style={{ fontSize: '12px' }} />
+                  <XAxis dataKey="time" stroke="#64748b" style={{ fontSize: '12px' }} tickFormatter={formatTime} />
                   <YAxis stroke="#64748b" style={{ fontSize: '12px' }} domain={[0, 100]} />
-                  <Tooltip contentStyle={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px' }} />
+                  <Tooltip labelFormatter={formatTime} contentStyle={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px' }} />
                   <Legend />
                   <Line type="monotone" dataKey="wilgotnosc" stroke="#3b82f6" strokeWidth={2} dot={false} name="Wilgotność (%)" />
                 </LineChart>
