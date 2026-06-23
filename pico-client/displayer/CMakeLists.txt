@@ -8,12 +8,19 @@ if (NOT TARGET pico_stdlib)
     pico_sdk_init()
 endif()
 
+set(target_name "displayer")
+
+pico_sdk_init()
+
 add_executable(displayer
     main.c
-    sched.c
     ssd1680.c
     tcp_server.c
     text_renderer.c
+    disp_task.c
+    comm_task.c
+    ../common/wd_task.c
+    ../common/sched.c
 )
 
 pico_enable_stdio_usb(displayer 1)
@@ -22,8 +29,8 @@ pico_enable_stdio_uart(displayer 0)
 target_include_directories(displayer PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}
     ${CMAKE_CURRENT_LIST_DIR}/..
+    ${CMAKE_CURRENT_LIST_DIR}/common/
     ${CMAKE_CURRENT_LIST_DIR}/../common/
-    ${CMAKE_CURRENT_LIST_DIR}/../../common/
 )
 
 target_link_libraries(displayer

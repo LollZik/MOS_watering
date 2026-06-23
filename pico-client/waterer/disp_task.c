@@ -4,6 +4,7 @@
 #include "pico/unique_id.h"
 
 #include "ssd1306.c"
+#include "sched.h"
 
 #define UPDATE_COUNT 5
 
@@ -57,3 +58,5 @@ disp_init(void)
 
   return 3000;
 }
+
+REGISTER_TASK("Display task", 500, disp_task, disp_init, false);

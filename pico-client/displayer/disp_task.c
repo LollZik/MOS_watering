@@ -6,6 +6,7 @@
 
 #include "ssd1680.h"
 #include "text_renderer.h"
+#include "sched.h"
 
 #define MAX_PUMPS 8
 
@@ -87,3 +88,5 @@ int disp_task(void) {
     }
     return WAIT_TIME;
 }
+
+REGISTER_TASK("Display task", 500, disp_task, disp_init, true);
