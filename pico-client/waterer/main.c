@@ -15,7 +15,6 @@
 #include "sched.h"
 #include "proto.h"
 #include "shared_mem.h"
-#include "gpio_irq.c"
 #include "tcp_client.h"
 #include "reset.h"
 

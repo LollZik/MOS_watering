@@ -3,6 +3,7 @@
 #include "proto.h"
 #include "tcp_client.h"
 #include "waterer.h"
+#include "sched.h"
 
 #include "lwip/tcp.h"
 #include "pico/cyw43_arch.h"
@@ -98,7 +99,7 @@ int waterer_task(void) {
             
             for (uint8_t i = 0; i < MAX_PUMPS; i++) {
                 if (active_mask & (1 << i)) {
-                    moisture_accumulator[i] += w_read_moisture_raw(i);
+                    moisture_accumulator[i] += w_read_moisture(i);
                 }
             }
             
@@ -166,3 +167,5 @@ int waterer_task(void) {
     current_state = STATE_READ_SENSORS;
     return sleep_time_ms;
 }
+
+REGISTER_TASK("Waterer task", 3000, waterer_task, waterer_init, true);

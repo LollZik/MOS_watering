@@ -3,6 +3,8 @@
 #include "lwip/tcp.h"
 #include "pico/cyw43_arch.h"
 
+#include "sched.h"
+
 #define WAIT_TIME 10000
 
 volatile bool new_data;
@@ -54,3 +56,5 @@ int comm_task(void) {
 
     return 500;
 }
+
+REGISTER_TASK("Comm task", 500, comm_task, NULL, true);

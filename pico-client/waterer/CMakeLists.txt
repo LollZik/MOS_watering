@@ -18,12 +18,17 @@ function(create_slot_target slot_name flash_offset)
   add_executable(${target_name}
     main.c
     dispatcher.c
-    sched.c
     tcp_client.c
     waterer.c
+    waterer_task.c
+    disp_task.c
+    uart_task.c
+    gpio_irq.c
+    ../common/sched.c
+    ../common/wd_task.c
     ../common/shared_mem.c
-    ${CMAKE_SOURCE_DIR}/../common/crc.c
-    ${CMAKE_SOURCE_DIR}/../../common/helpers.c
+    ${CMAKE_SOURCE_DIR}/common/crc.c
+    ${CMAKE_SOURCE_DIR}/../common/helpers.c
   )
 
   pico_enable_stdio_usb(${target_name} 1)
@@ -31,17 +36,19 @@ function(create_slot_target slot_name flash_offset)
 
   target_include_directories(${target_name} PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}
-    ${CMAKE_CURRENT_LIST_DIR}/../common/
     ${CMAKE_CURRENT_LIST_DIR}/..
-    ${CMAKE_CURRENT_LIST_DIR}/../../common/
+    ${CMAKE_CURRENT_LIST_DIR}/common/
+    ${CMAKE_CURRENT_LIST_DIR}/../common/
   )
 
   target_link_libraries(${target_name}
     pico_cyw43_arch_lwip_threadsafe_background
     pico_lwip
     pico_stdlib
+    hardware_sleep
     hardware_i2c
     hardware_clocks
+    hardware_rosc
     hardware_irq
     hardware_spi
     hardware_adc
@@ -52,7 +59,7 @@ function(create_slot_target slot_name flash_offset)
   set(linker_script "${CMAKE_CURRENT_BINARY_DIR}/watering_${slot_name}.ld")
   set(ORIGIN ${flash_offset})
   configure_file(
-    "${CMAKE_SOURCE_DIR}/waterer.ld.in"
+    "${CMAKE_SOURCE_DIR}/waterer/waterer.ld.in"
     "${linker_script}"
     @ONLY
   )
