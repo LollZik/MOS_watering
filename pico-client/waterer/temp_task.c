@@ -20,7 +20,7 @@ int
 temp_init(void)
 {
   adc_init();
-
+  
   return 0;
 }
 
@@ -32,3 +32,5 @@ temp_task(void)
 
   return TEMP_TASK_TIMEOUT_MS;  
 }
+
+REGISTER_TASK("Temperature task", TEMP_TASK_TIMEOUT_MS, temp_task, temp_init, true);

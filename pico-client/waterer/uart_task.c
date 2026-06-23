@@ -18,3 +18,5 @@ uart_task(void)
 
   return 2900;
 }
+
+REGISTER_TASK("Uart task", 1000, uart_task, NULL, true);

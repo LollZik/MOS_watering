@@ -57,3 +57,6 @@ moist_task(void)
 
   return MOIST_TASK_TIMEOUT_MS;  
 }
+
+REGISTER_TASK("Moisture task", MOIST_TASK_TIMEOUT_MS, moist_task, moist_init, true);
+

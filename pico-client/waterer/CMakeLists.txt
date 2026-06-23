@@ -18,8 +18,12 @@ function(create_slot_target slot_name flash_offset)
   add_executable(${target_name}
     main.c
     dispatcher.c
-    sched.c
     tcp_client.c
+    disp_task.c
+    uart_task.c
+    gpio_irq.c
+    ../common/sched.c
+    ../common/wd_task.c
     ../common/shared_mem.c
     ${CMAKE_SOURCE_DIR}/common/crc.c
     ${CMAKE_SOURCE_DIR}/../common/helpers.c
@@ -40,9 +44,9 @@ function(create_slot_target slot_name flash_offset)
     pico_lwip
     pico_stdlib
     hardware_sleep
-    hardware_adc
     hardware_i2c
     hardware_clocks
+    hardware_rosc
     hardware_irq
     hardware_spi
     hardware_adc
