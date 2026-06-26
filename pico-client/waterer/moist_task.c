@@ -50,6 +50,7 @@ moist_task(void)
     const absolute_time_t cur_time = get_absolute_time();
     if (deadline <= cur_time)
     {
+      printf("Watering the plants\n");
       start_watering();
       deadline = make_timeout_time_ms(AFTER_WATERING_TASK_TIMEOUT);
     }
