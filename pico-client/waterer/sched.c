@@ -1,22 +1,13 @@
 #include <stdio.h>
-
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
 
 #include "sched.h"
 
-#include "pico/sleep.h"
-
-#include "hardware/pll.h"
-#include "hardware/regs/clocks.h"
-#include "hardware/clocks.h"
-#include "hardware/watchdog.h"
-#include "hardware/xosc.h"
-#include "hardware/rosc.h"
-#include "hardware/regs/io_bank0.h"
-
-#include "hardware/structs/scb.h"
+#include "hardware/timer.h"
+#include "hardware/irq.h" 
+#include "pico/sync.h"
 
 #include "uart_task.c"
 #include "disp_task.c"
