@@ -38,6 +38,7 @@
 #define ACK_LEN_ERR                     0xFD
 
 #define ACK_OK                          0x00
+#define MAX_PUMPS 8
 
 #include <stdint.h>
 
