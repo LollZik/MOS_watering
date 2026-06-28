@@ -6,6 +6,9 @@
 #define UART_TASK_INDEX     0
 #define DISP_TASK_INDEX     1
 #define WD_TASK_INDEX       2
+#define WATER_TASK_INDEX    3
+#define MOIST_TASK_INDEX    4
+#define TEMP_TASK_INDEX     5
 
 #include "hardware/sync.h"
 #include "pico/time.h"
@@ -35,12 +38,7 @@ disable_task(task_ctx_t *task)
   task->task_en = TASK_DISABLED;
 }
 
-inline void
-enable_task(task_ctx_t *task) 
-{
-  task->task_en = TASK_ENABLED;
-  should_wake_up = true;
-}
+void enable_task(task_ctx_t *task);
 
 void __run_sched(void);
 int add_task(task_ctx_t *task);

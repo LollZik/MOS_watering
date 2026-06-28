@@ -26,6 +26,10 @@
 #define FLASH_WRITE_CMD                 0xF0
 #define FLASH_ERASE_CMD                 0xF1
 
+#define TRIGGER_WATER_CMD               0xF8
+#define SET_WATERING_TIME               0xF9
+#define SET_WATER_THRESHOLD             0xFA
+
 #define IS_ERR_ACK(x)                   (x >= ACK_FIRST_ERR)
 
 #define ACK_FIRST_ERR                   0xFB
@@ -73,7 +77,7 @@ typedef struct set_name {
 } set_name_t;
 
 typedef struct get_info {
-  uint8_t       uuid[8];  
+  uint64_t      uuid;  
   uint8_t       name[MAX_NAME_LEN];
 } get_info_t;
 
@@ -81,8 +85,22 @@ typedef struct get_watering_ctx {
   uint8_t       water_lvl;
   uint8_t       battery_lvl;
   uint16_t      moisture_lvl;
+  uint16_t      temp_lvl;
   uint32_t      uptime;
 } get_watering_ctx_t;
+
+typedef struct trigger_water {
+  uint32_t      time_ms;
+} trigger_water_ctx_t;
+
+typedef struct set_watering_time {
+  uint32_t      time_ms;
+} set_watering_time_t;
+
+typedef struct set_watering_threshold {
+  uint16_t      threshold;
+} set_watering_threshold_t;
+
 
 typedef union packet_data {
   uint8_t                   buf[MAX_DATA_LEN];
@@ -94,6 +112,9 @@ typedef union packet_data {
   set_name_t                set_name;
   get_info_t                get_info;
   get_watering_ctx_t        get_ctx;
+  trigger_water_ctx_t       trigger_water;
+  set_watering_time_t       set_water;
+  set_watering_threshold_t  set_thresh;
 } packet_data_t;
 
 typedef struct packet {

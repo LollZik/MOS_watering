@@ -1,13 +1,21 @@
 #include <stdio.h>
+#include <poll.h>
 #include <argp.h>
 #include <getopt.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <unistd.h>
 
 #include "recver.h"
 #include "serv.h"
 #include "logger.h"
 #include "controller.h"
+#include "cloud.h"
+
+#define dbg_printf printf
 
 struct argp_option options[] = {
     { "verbose", 'v', "LEVEL", 0, "Set verbosity level (0=errors only, 1=warnings, 2=info, 3=debug, 4=trace)" },
@@ -60,14 +68,15 @@ main(int argc, char **argv)
   pthread_t recv_thread;
   pthread_t serv_thread;
   pthread_t control_thread;
+  pthread_t cloud_thread;
 
   pthread_create(&serv_thread, NULL, &serv_main, NULL);
   pthread_create(&recv_thread, NULL, &recv_main, NULL);
   pthread_create(&control_thread, NULL, &main_controller, NULL);
+  pthread_create(&cloud_thread, NULL, &cloud_main, NULL);
 
   pthread_join(recv_thread, NULL);
   pthread_join(serv_thread, NULL);
   pthread_join(control_thread, NULL);
-
-  return 0;
+  pthread_join(cloud_thread, NULL);
 }

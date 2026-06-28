@@ -11,8 +11,10 @@
 
 #include "dispatcher.h"
 
-#include "reset.h"
+#include "water_ctx.h"
 
+#include "sched.h"
+#include "reset.h"
 
 #define SLOT_SIZE (SLOT1_ORIGIN - SLOT0_ORIGIN)
 
@@ -35,6 +37,10 @@ handle_packet dispatch_table[256] = {
 
   [FLASH_WRITE_CMD]         = flash_write,
   [FLASH_ERASE_CMD]         = flash_erase,
+
+  [TRIGGER_WATER_CMD]       = trigger_water,
+  [SET_WATERING_TIME]       = set_watering_time_cmd,
+  [SET_WATER_THRESHOLD]     = set_water_thresh_cmd,
 };
 
 static inline int
@@ -246,6 +252,8 @@ reset_handle(packet_t *in_packet, packet_t *out_packet, uint16_t *out_len)
     return ACK_LEN_ERR;
   }
 
+  printf("Rebooting pico\n");
+
   reset_pico();
 
   return ACK_OK;
@@ -302,7 +310,7 @@ get_info_handle(packet_t *in_packet, packet_t *out_packet, uint16_t *out_len)
   
   uint16_t len = strlen(out_packet->data.get_info.name);
 
-  pico_get_unique_board_id((pico_unique_board_id_t *) out_packet->data.get_info.uuid);
+  pico_get_unique_board_id((pico_unique_board_id_t *) &out_packet->data.get_info.uuid);
   
   *out_len = len + 8;
 
@@ -314,10 +322,62 @@ get_watering_ctx(packet_t *in_packet, packet_t *out_packet, uint16_t *out_len)
 {
   out_packet->data.get_ctx.water_lvl = 0xA5;
   out_packet->data.get_ctx.battery_lvl = 0xA5;
-  out_packet->data.get_ctx.moisture_lvl = 0xDEAD;
+  out_packet->data.get_ctx.moisture_lvl = get_moist_lvl();
+  out_packet->data.get_ctx.temp_lvl = get_temp_lvl();
   out_packet->data.get_ctx.uptime = to_ms_since_boot(get_absolute_time());
 
-  *out_len = 8;
+  *out_len = sizeof(get_watering_ctx_t);
+  
+  return ACK_OK;
+}
+
+uint8_t
+trigger_water(packet_t *in_packet, packet_t *out_packet, uint16_t *out_len)
+{
+  uint32_t time_ms = in_packet->data.trigger_water.time_ms;
+
+  if (time_ms == -1)
+  {
+    return ACK_PARAM_ERR;
+  }
+
+  set_watering_time(time_ms);
+  start_watering();
+
+  *out_len = 0;
+  return ACK_OK;
+}
+
+uint8_t
+set_watering_time_cmd(packet_t *in_packet, packet_t *out_packet, uint16_t *out_len)
+{
+  uint32_t time_ms = in_packet->data.set_water.time_ms;
+
+  if (time_ms == -1)
+  {
+    return ACK_PARAM_ERR;
+  }
+
+  set_watering_time(time_ms);
+
+  *out_len = 0;
+  
+  return ACK_OK;
+}
+
+uint8_t
+set_water_thresh_cmd(packet_t *in_packet, packet_t *out_packet, uint16_t *out_len)
+{
+  uint32_t time_ms = in_packet->data.set_water.time_ms;
+
+  if (time_ms == -1)
+  {
+    return ACK_PARAM_ERR;
+  }
+
+  set_moist_thresh(time_ms);
+
+  *out_len = 0;
   
   return ACK_OK;
 }

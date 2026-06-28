@@ -28,6 +28,7 @@ function(create_slot_target slot_name flash_offset)
     pico_cyw43_arch_lwip_threadsafe_background
     pico_stdlib
     hardware_sleep
+    hardware_adc
     hardware_i2c
     hardware_clocks
     hardware_rosc

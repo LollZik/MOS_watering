@@ -28,4 +28,8 @@ uint8_t read_sw_version_handle(packet_t *in_packet, packet_t *out_packet, uint16
 uint8_t set_name_handle(packet_t *in_packet, packet_t *out_packet, uint16_t *out_len);
 uint8_t get_info_handle(packet_t *in_packet, packet_t *out_packet, uint16_t *out_len);
 
+uint8_t trigger_water(packet_t *in_packet, packet_t *out_packet, uint16_t *out_len);
+uint8_t set_watering_time_cmd(packet_t *in_packet, packet_t *out_packet, uint16_t *out_len);
+uint8_t set_water_thresh_cmd(packet_t *in_packet, packet_t *out_packet, uint16_t *out_len);
+
 extern handle_packet dispatch_table[256];

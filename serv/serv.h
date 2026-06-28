@@ -17,11 +17,13 @@ typedef enum {
   RUNNING = 1,
   SET_NAME = 2,
   OTA = 3,
+  WATER = 4,
 } pico_messages_state_t;
 
 struct pico_ctx {
   int fd;
 
+  uint8_t is_connected;
   uint8_t slot_to_update;
   uint8_t cur_slot_id;
   uint8_t active_slot_id;
@@ -42,6 +44,8 @@ struct pico_ctx {
 
   uint8_t recv_buf[MAX_DATA_LEN];
   size_t  recv_len;
+
+  uint32_t trigger_water_time_ms;
 
   int (*packet_callback)(packet_t *in_packet, pico_ctx_t *ctx);
 };

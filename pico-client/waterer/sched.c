@@ -21,6 +21,9 @@
 #include "uart_task.c"
 #include "disp_task.c"
 #include "wd_task.c"
+#include "water_task.c"
+#include "moist_task.c"
+#include "temp_task.c"
 
 #define MIN_SCHED_TIMEOUT_MS 10000
 
@@ -49,7 +52,10 @@ static void sched_go_sleep_until(absolute_time_t deadline)
   if (alarm_num >= 0) {
     hardware_alarm_set_target(alarm_num, deadline);
 
-    __wfe();
+    while(!should_wake_up)
+    {
+      __wfe();
+    }
 
     hardware_alarm_unclaim(alarm_num);
   } else {
@@ -57,6 +63,14 @@ static void sched_go_sleep_until(absolute_time_t deadline)
       tight_loop_contents();
     }
   }
+}
+
+void
+enable_task(task_ctx_t *task)
+{
+  task->task_en = TASK_ENABLED;
+  task->deadline = get_absolute_time();
+  should_wake_up = true;
 }
 
 uint32_t
@@ -73,7 +87,10 @@ init_task(const uint32_t timeout_ms, const char *name, task_fn task_function, ta
   task.realise = task_function;
   task.init = init_function;
 
-  enable_task(&task);
+  if (timeout_ms != -1)
+  {
+    enable_task(&task);
+  }
 
   return task;
 }
@@ -89,6 +106,15 @@ init_tasks(void)
 
   task_ctx_t wd_task_ctx = init_task(4000, "Watchdog task", &wd_task, &wd_init, WD_TASK_INDEX);
   add_task(&wd_task_ctx);
+
+  task_ctx_t water_task_ctx = init_task(-1, "Watering task", &water_task, &water_init, WATER_TASK_INDEX);
+  add_task(&water_task_ctx);
+
+  task_ctx_t moist_task_ctx = init_task(2000, "Moisture task", &moist_task, &moist_init, MOIST_TASK_INDEX);
+  add_task(&moist_task_ctx);
+
+  task_ctx_t temp_task_ctx = init_task(2000, "Temperature task", &temp_task, &temp_init, TEMP_TASK_INDEX);
+  add_task(&temp_task_ctx);
 }
 
   int
@@ -154,8 +180,8 @@ __run_sched(void)
           tasks[i].timeout_ms = (uint32_t)ret;
         } else if (ret == -1) {
           disable_task(&tasks[i]);
-        } else {
         }
+
         tasks[i].deadline = make_timeout_time_ms(tasks[i].timeout_ms);
       }
 

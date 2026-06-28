@@ -104,12 +104,13 @@ recv_main(void *args)
 get_watering_ctx_handle(packet_t *in_packet, pico_ctx_t *pico_ctx) 
 {
   if (in_packet->header.length != sizeof(get_watering_ctx_t)) {
-    log_warn("Length is not the length of valid response\n");
+    log_warn("Get watering ctx: Length is not the length of valid response\n");
     return -1;
   }
 
   const get_watering_ctx_t *resp = &(in_packet->data.get_ctx);
 
+  pico_ctx->is_connected = 0xDD;
   memcpy(&(pico_ctx->watering_ctx), resp, sizeof(get_watering_ctx_t));
 
   return 0;
@@ -119,7 +120,7 @@ get_watering_ctx_handle(packet_t *in_packet, pico_ctx_t *pico_ctx)
 get_running_slot_handle(packet_t *in_packet, pico_ctx_t *pico_ctx) 
 {
   if (in_packet->header.length != sizeof(read_running_slot_resp_t)) {
-    log_warn("Length is not the length of valid response\n");
+    log_warn("Get Running Slot: Length is not the length of valid response\n");
     return -1;
   }
 
@@ -135,7 +136,7 @@ get_running_slot_handle(packet_t *in_packet, pico_ctx_t *pico_ctx)
 generic_zerolen_resp(packet_t *in_packet, pico_ctx_t *pico_ctx)
 {
   if (in_packet->header.length != 0) {
-    log_warn("Length is not the length of valid response\n");
+    log_warn("Generic Zerolen: Length is not the length of valid response, header: %u\n", in_packet->header.cmd_ack);
     return -1;
   }
 
@@ -145,14 +146,12 @@ generic_zerolen_resp(packet_t *in_packet, pico_ctx_t *pico_ctx)
   int
 get_info_handle(packet_t *in_packet, pico_ctx_t *pico_ctx)
 {
-  log_info("Inn get info handle\n");
   get_info_t *info_pack = &(in_packet->data.get_info);
-
-  pico_ctx->pico_id = ((uint64_t *)&info_pack->uuid)[0];
+  memcpy(&pico_ctx->pico_id, &info_pack->uuid, sizeof(info_pack->uuid));
   strncpy(pico_ctx->pico_name, info_pack->name, MAX_NAME_LEN);
 
-  log_info("Got %s name from ID:%16X\n", 
-      pico_ctx->pico_name, pico_ctx->pico_id);
+  log_info("Got %s name from ID:%08X%08X\n", 
+      pico_ctx->pico_name, pico_ctx->pico_id >> 32, pico_ctx->pico_id);
 
   return 0;
 }

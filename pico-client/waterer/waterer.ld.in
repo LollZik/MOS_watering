@@ -1,6 +1,7 @@
 MEMORY
 {
     FLASH(rx) : ORIGIN = @ORIGIN@, LENGTH = 512K
+    FLASH_CONFIG(rx) : ORIGIN = 0x1001F000, LENGTH = 8K
     RAM(rwx)  : ORIGIN = 0x20000000, LENGTH = 264K
     SCRATCH_X(rwx) : ORIGIN = 0x20040000, LENGTH = 4k
     SCRATCH_Y(rwx) : ORIGIN = 0x20041000, LENGTH = 4k
@@ -35,10 +36,10 @@ SECTIONS
        launches only, to perform proper flash setup.
     */
 
-    .shared 0x1001F800 (NOLOAD):
+    .shared 0x1001F000 (NOLOAD):
     {
-      _shared_start = .;
-    }
+      KEEP(*(.shared))
+    } > FLASH_CONFIG
 
     .text : {
         __logical_binary_start = .;

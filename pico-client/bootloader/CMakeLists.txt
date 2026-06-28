@@ -13,6 +13,7 @@ target_link_libraries(${PROJECT_NAME}
   hardware_watchdog
   hardware_resets
   hardware_dma
+  hardware_flash
   pico_platform
   pico_crt0
   pico_standard_link

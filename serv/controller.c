@@ -21,6 +21,7 @@ end_init_callback(packet_t *in_packet, pico_ctx_t *pico_ctx)
 {
   pico_ctx->intern_state = RUNNING;
   pico_ctx->packet_callback = NULL;
+  pico_ctx->pico_id = (uint64_t )in_packet->data.get_info.uuid;
 
   create_get_ctx_packet(0xDD, pico_ctx);
   send_packet(pico_ctx);
@@ -66,8 +67,6 @@ wakeup_controller(void)
 void *
 main_controller(void *args)
 {
-  init_cloud_conn(); 
-
   struct timespec now;
 
   while (1) {
@@ -115,9 +114,13 @@ main_controller(void *args)
 
               pthread_mutex_unlock(&(pico_ctxs[i].pico_mut));
       
-              if (cloud_post_telemetry(pico_ctxs[i].pico_name, pico_ctxs[i].watering_ctx.moisture_lvl,
-                    pico_ctxs[i].watering_ctx.water_lvl, pico_ctxs[i].watering_ctx.battery_lvl, pico_ctxs[i].watering_ctx.uptime) ) {
-                log_err("Failed to post telemetry\n");
+              if (pico_ctxs[i].is_connected == 0xDD)
+              {
+                if (int ret = cloud_post_telemetry(pico_ctxs[i].pico_id, pico_ctxs[i].watering_ctx.moisture_lvl,
+                  pico_ctxs[i].watering_ctx.water_lvl, pico_ctxs[i].watering_ctx.battery_lvl,
+                  pico_ctxs[i].watering_ctx.uptime, pico_ctxs[i].watering_ctx.temp_lvl) ) {
+                  log_err("Failed to post telemetry, err: %u\n", ret);
+                }
               }
             }
 
@@ -128,12 +131,23 @@ main_controller(void *args)
           }
         case SET_NAME:
           {
-            log_info("We're requested to set name\n");
+            create_set_name_packet(pico_ctxs[i].pico_name, 0xDDDD, &pico_ctxs[i]);
+            send_packet(&pico_ctxs[i]);
+
+            pico_ctxs[i].intern_state = RUNNING;
             break;
           }
         case OTA:
           {
             log_info("We're requested to perform OTA\n");
+            break;
+          }
+        case WATER:
+          {
+            create_water_trigger_packet(0xFEED, &pico_ctxs[i], pico_ctxs[i].trigger_water_time_ms);
+            send_packet(&pico_ctxs[i]);
+
+            pico_ctxs[i].intern_state = RUNNING;
             break;
           }
         default:
@@ -151,6 +165,4 @@ main_controller(void *args)
     pthread_cond_timedwait(&control_buf_cond, &control_buf_mutex, &ts);
     pthread_mutex_unlock(&control_buf_mutex);
   }
-
-  deinit_cloud_conn(); 
 }

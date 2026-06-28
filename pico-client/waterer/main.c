@@ -26,6 +26,8 @@
 #if !defined(PROJECT_VERSION_MAJOR) || !defined(PROJECT_VERSION_MINOR)|| !defined(PROJECT_VERSION_PATCH)
   #error "PROJECT_VERSION cannot be read"
 #endif
+#define DEBUG_printf printf
+#define BUF_SIZE MAX_FLASH_DATA
 
 typedef struct TCP_CLIENT_T_ {
   struct tcp_pcb *tcp_pcb;
@@ -88,8 +90,14 @@ err_t tcp_client_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err
   TCP_CLIENT_T *state = (TCP_CLIENT_T*)arg;
 
   cyw43_arch_lwip_check();
-  if (!p) {
-    return err;
+  if (p->tot_len > 0) {
+    const uint16_t buffer_left = BUF_SIZE;
+    state->buffer_len += pbuf_copy_partial(p, state->buffer,
+        p->tot_len > buffer_left ? buffer_left : p->tot_len, 0);
+
+    dispatch((packet_t *)state->buffer, p->tot_len);
+
+    tcp_recved(tpcb, p->tot_len);
   }
 
   if (p->tot_len > 0) {
@@ -165,11 +173,14 @@ main()
   stdio_init_all();
 
   if (cyw43_arch_init()) {
+    printf("CYW43 initialisation failed\n");
     exit(-1);
   }
 
+  printf("Enabling STA mode\n");
   cyw43_arch_enable_sta_mode();
 
+  printf("Connecting to %s Wi-Fi...\n", WIFI_SSID);
   while (1) {
     if (cyw43_arch_wifi_connect_timeout_ms(WIFI_SSID, WIFI_PASS, CYW43_AUTH_WPA2_AES_PSK, 30000)) {
     } else {
@@ -185,9 +196,9 @@ main()
   printf("Running slot  in flash: %02X\n", get_running_slot_id());
   printf("Running firmware ver: %02X.%02X.%02X\n",
          PROJECT_VERSION_MAJOR, PROJECT_VERSION_MINOR, PROJECT_VERSION_PATCH);
-  printf("Connecting to %s Wi-Fi...\n", WIFI_SSID);
 
   init_gpio();
+  load_config_from_flash();
 
   __main();
 
