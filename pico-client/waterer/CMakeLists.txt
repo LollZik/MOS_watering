@@ -17,11 +17,15 @@ function(create_slot_target slot_name flash_offset)
 
   add_executable(${target_name}
     main.c
-    dispatcher.c
-    tcp_client.c
+    dispatch_table.c
+    moist_task.c
+    temp_task.c
+    water_task.c
     disp_task.c
     uart_task.c
     gpio_irq.c
+    ../common/tcp_client.c
+    ../common/dispatcher.c
     ../common/sched.c
     ../common/wd_task.c
     ../common/shared_mem.c
@@ -43,6 +47,7 @@ function(create_slot_target slot_name flash_offset)
     pico_cyw43_arch_lwip_threadsafe_background
     pico_stdlib
     hardware_sleep
+    hardware_adc
     hardware_i2c
     hardware_clocks
     hardware_rosc

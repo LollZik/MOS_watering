@@ -3,7 +3,13 @@
 #include "pico/cyw43_arch.h"
 
 #include "sched.h"
+#include "proto.h"
 #include "tcp_server.h"
+#include "tcp_client.h"
+#include "dispatcher.h"
+
+struct tcp_pcb *server_tcp = NULL;
+struct tcp_pcb *display_tcp = NULL;
 
 int main() {
     stdio_init_all();
@@ -12,21 +18,20 @@ int main() {
         return 1;
     }
     
-    cyw43_arch_enable_ap_mode(WIFI_SSID, WIFI_PASS, CYW43_AUTH_WPA2_AES_PSK);
-    
-    // IP config
-    struct netif *n = &cyw43_state.netif[CYW43_ITF_AP];
-    ip4_addr_t ip, netmask, gw;
+    cyw43_arch_enable_sta_mode();
 
-    ip4addr_aton(DISPLAYER_IP, &ip);
-    ip4addr_aton(DISPLAYER_IP, &gw); 
-    IP4_ADDR(&netmask, 255, 255, 255, 0);
-    
-    netif_set_addr(n, &ip, &netmask, &gw);
-    netif_set_up(n);
-    
+    while (cyw43_arch_wifi_connect_timeout_ms(WIFI_SSID, WIFI_PASS, CYW43_AUTH_WPA2_AES_PSK, 30000)) {
+        printf("Connection failed. Retrying...\n");
+    }
+
+
+    if (!tcp_client_init_and_connect(TEST_TCP_SERVER_IP, &server_tcp)) {
+        printf("Error: TCP Server init failed\n");
+    }
+
     tcp_server_init();
 
+    should_wake_up = true;
     __run_sched();
     return 0;
 }

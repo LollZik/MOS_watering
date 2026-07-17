@@ -6,11 +6,13 @@
 #include "pico/cyw43_arch.h"
 #include "lwip/pbuf.h"
 
-#include "dispatcher.h"
 #include "proto.h"
 #include "shared_mem.h"
 #include "pico/time.h"
 #include "pico/sync.h"
+#include "dispatcher.h"
+
+#define BUF_SIZE MAX_FLASH_DATA
 
 #define POLL_TIME_S 10
 #define TCP_PORT 8080
@@ -26,9 +28,6 @@ typedef struct TCP_CLIENT_T_ {
   bool connected;
   struct tcp_pcb **out_tcp_ptr;
 } TCP_CLIENT_T;
-
-struct tcp_pcb *cloud_tcp = NULL;
-struct tcp_pcb *display_tcp = NULL;
 
 static err_t tcp_client_close(void *arg) {
   TCP_CLIENT_T *state = (TCP_CLIENT_T*)arg;
@@ -90,22 +89,50 @@ err_t tcp_client_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err
   TCP_CLIENT_T *state = (TCP_CLIENT_T*) arg;
 
   cyw43_arch_lwip_check();
+
   if (!p) {
     return err;
   }
 
   if (p->tot_len > 0) {
-    state->buffer_len = pbuf_copy_partial(p, state->buffer, p->tot_len , 0);
+    const uint16_t buffer_left = BUF_SIZE;
+    uint16_t room = (uint16_t)(BUF_LEN - state->buffer_len);
+    uint16_t to_copy = p->tot_len > room ? room : p->tot_len;
 
-    // Passes the active PCB to the dispatcher to route the ACK correctly.
-    dispatch((packet_t *)state->buffer, state->buffer_len, tpcb);
+    state->buffer_len += pbuf_copy_partial(p, state->buffer + state->buffer_len,
+        to_copy, 0);
+    
+    size_t offset = 0;
+    while (((size_t)state->buffer_len - offset) >= sizeof(header_t)){
+      packet_t *pkt = (packet_t *)(state->buffer + offset);
+      const size_t total_needed = sizeof(header_t) + pkt->header.length;
+
+      if (total_needed > BUF_LEN){
+        offset = state->buffer_len;
+        break;
+      }
+
+      if (offset + total_needed > (size_t)state->buffer_len){
+        break;
+      }
+      dispatch(pkt, total_needed, tpcb);
+
+      offset += total_needed;
+    }
+ 
+    if (offset > 0) {
+      if (offset < state->buffer_len) {
+        memmove(state->buffer, state->buffer + offset, state->buffer_len - offset);
+      }
+      state->buffer_len -= offset;
+    }
+
+    tcp_recved(tpcb, p->tot_len);
   }
-  if (p) {
+
+  if (p){
     pbuf_free(p);
   }
-  state->buffer_len = 0;
-
-  tcp_recved(tpcb, p->tot_len);
 
   return ERR_OK;
 }
@@ -144,13 +171,13 @@ static TCP_CLIENT_T* tcp_client_init(const char* ip_addr, struct tcp_pcb **out_p
 }
 
 bool tcp_client_init_and_connect(const char* ip_addr, struct tcp_pcb **out_ptr) {
+  
   TCP_CLIENT_T *state = tcp_client_init(ip_addr, out_ptr);
   if (!state) {
     return false;
   }
 
   uint32_t last_try_time = 0;
-
   while (!state->connected) {
     if (state->tcp_pcb == NULL) {
       uint32_t current_time = time_us_32();

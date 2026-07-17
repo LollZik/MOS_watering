@@ -12,6 +12,7 @@
 #include "hardware/watchdog.h"
 
 #include "dispatcher.h"
+#include "dispatch_table.h"
 #include "sched.h"
 #include "proto.h"
 #include "shared_mem.h"
@@ -23,18 +24,33 @@
   #error "PROJECT_VERSION cannot be read"
 #endif
 #define DEBUG_printf printf
-#define BUF_SIZE MAX_FLASH_DATA
+
+extern void init_gpio(void);
+
+struct tcp_pcb *server_tcp = NULL;
+struct tcp_pcb *display_tcp = NULL;
 
 void
 __main(void)
 {
-  if (!tcp_client_init_and_connect(CLOUD_IP, &cloud_tcp)) {
-      printf("Error: Cloud TCP init failed\n");
+  if (!tcp_client_init_and_connect(TEST_TCP_SERVER_IP, &server_tcp)) {
+      printf("Error: TCP Server init failed\n");
       return; 
   }
 
-  if (!tcp_client_init_and_connect(DISPLAYER_IP, &display_tcp)) {
-      printf("Error: Displayer TCP init failed\n");
+  // Wait until server sends a peer_discovery packet wiith displayer's IP
+  while (!displayer_ip_received) {
+      sleep_ms(100);
+  }
+  char displayer_ip_str[16]; 
+  strncpy(displayer_ip_str, ipaddr_ntoa(&displayer_ip), sizeof(displayer_ip_str));
+  displayer_ip_str[sizeof(displayer_ip_str) - 1] = '\0';
+
+  printf("Displayer IP received: %s - Connecting...\n", displayer_ip_str);
+
+
+  if (!tcp_client_init_and_connect(displayer_ip_str, &display_tcp)) {
+      printf("Error: Displayer TCP init failed for IP: %s\n", displayer_ip_str);
       return; 
   }
 
@@ -45,6 +61,7 @@ void __attribute__((__noreturn__))
 main()
 {
   stdio_init_all();
+  sleep_ms(5000);
 
   if (cyw43_arch_init()) {
     printf("CYW43 initialisation failed\n");
@@ -73,7 +90,6 @@ main()
   printf("Running firmware ver: %02X.%02X.%02X\n",
          PROJECT_VERSION_MAJOR, PROJECT_VERSION_MINOR, PROJECT_VERSION_PATCH);
 
-  // Initializes GPIO interrupts required for system wake-up.
   init_gpio();
   load_config_from_flash();
 
