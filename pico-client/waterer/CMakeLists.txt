@@ -17,11 +17,15 @@ function(create_slot_target slot_name flash_offset)
 
   add_executable(${target_name}
     main.c
-    dispatcher.c
-    tcp_client.c
+    dispatch_table.c
+    moist_task.c
+    temp_task.c
+    water_task.c
     disp_task.c
     uart_task.c
     gpio_irq.c
+    ../common/tcp_client.c
+    ../common/dispatcher.c
     ../common/sched.c
     ../common/wd_task.c
     ../common/shared_mem.c
@@ -44,6 +48,7 @@ function(create_slot_target slot_name flash_offset)
     pico_lwip
     pico_stdlib
     hardware_sleep
+    hardware_adc
     hardware_i2c
     hardware_clocks
     hardware_rosc
@@ -76,8 +81,6 @@ function(create_slot_target slot_name flash_offset)
     WIFI_SSID="${WIFI_SSID}"
     WIFI_PASS="${WIFI_PASS}"
     TEST_TCP_SERVER_IP="${TEST_TCP_SERVER_IP}"
-    DISPLAYER_IP="${DISPLAYER_IP}"
-    CLOUD_IP="${CLOUD_IP}"
     ACTIVE_PUMPS_MASK=${ACTIVE_PUMPS_MASK}
     CRC_SEED=${CRC_SEED}
     BOOTLOADER_ORIGIN=${BOOTLOADER_ORIGIN}

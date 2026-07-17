@@ -157,3 +157,16 @@ create_water_threshold_packet(const uint16_t msg_id, pico_ctx_t *pico_ctx, const
   out_buf->header.length = 1 + sizeof(set_watering_threshold_t);
   out_buf->data.set_thresh.threshold = threshold;
 }
+
+  void
+create_peer_discovery_packet(const uint16_t msg_id, pico_ctx_t *pico_ctx, const uint8_t role, const uint32_t ip)
+{
+  packet_t *out_buf = &(pico_ctx->out_buf);
+
+  out_buf->header.cmd_ack = PEER_DISCOVERY_CMD;
+  out_buf->header.msg_id = msg_id;
+  out_buf->header.length = sizeof(peer_discovery_t);
+  
+  out_buf->data.peer_discovery.role = role;
+  out_buf->data.peer_discovery.ip = ip;
+}

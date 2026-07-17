@@ -2,11 +2,13 @@
 
 #include "pico/time.h"
 #include "pico/unique_id.h"
+#include "pico/cyw43_arch.h"
 
 #include "hardware/flash.h"
 #include "hardware/sync.h"
 #include "shared_mem.h"
 
+#include "dispatch_table.h"
 #include "dispatcher.h"
 
 #include "water_ctx.h"
@@ -18,7 +20,9 @@
 
 extern void w_get_watering_stats(get_watering_ctx_t *ctx);
 
-uint8_t tx_buf[sizeof(packet_t)];
+volatile bool displayer_ip_received = false;
+ip_addr_t displayer_ip = {0};
+
 
 handle_packet dispatch_table[256] = {
   [GET_WATERING_CTX_CMD]    = get_watering_ctx,
@@ -39,6 +43,8 @@ handle_packet dispatch_table[256] = {
   [TRIGGER_WATER_CMD]       = trigger_water,
   [SET_WATERING_TIME]       = set_watering_time_cmd,
   [SET_WATER_THRESHOLD]     = set_water_thresh_cmd,
+
+  [PEER_DISCOVERY_CMD]      = peer_discovery_handle,
 };
 
 static inline int
@@ -64,69 +70,6 @@ set_running_slot(uint8_t slot_id)
 
   return 0;
 }
-
-void
-dispatch(packet_t *in_packet, uint16_t len, struct tcp_pcb *tpcb)
-{
-  const uint8_t cmd = in_packet->header.cmd_ack;
-  const uint16_t msg_id = in_packet->header.msg_id;
-
-  if (dispatch_table[cmd] == NULL) {
-    send_error_response(tpcb, ACK_CMD_ERR, msg_id);
-    return;
-  }
-
-  if (len != sizeof(header_t) + in_packet->header.length) {
-    send_error_response(tpcb, ACK_LEN_ERR, msg_id);
-    return;
-  }
-
-  uint16_t resp_len = 0;
-  uint8_t ack = dispatch_table[cmd](in_packet, (packet_t *)tx_buf, &resp_len);
-
-  if (ack == ACK_OK) {
-    ack = cmd;
-  }
-
-  send_ok_response(tpcb, ack, msg_id, resp_len);
-}
-
-void
-send_response(struct tcp_pcb *tpcb, packet_t *packet)
-{
-
-  uint8_t *data = (uint8_t *)packet;
-
-  printf("Sending packet of size :%u, header: %02X\n", sizeof(header_t) + packet->header.length, packet->header.cmd_ack);
-
-  tcp_write(tpcb, packet, (sizeof(header_t) + packet->header.length), TCP_WRITE_FLAG_MORE);
-}
-
-void
-send_error_response(struct tcp_pcb *tpcb, uint8_t ack, uint16_t msg_id)
-{
-  packet_t *packet = (packet_t *)tx_buf;
-
-  packet->header.cmd_ack = ack;
-  packet->header.msg_id = msg_id;
-  packet->header.length = 0;
-
-  send_response(tpcb, packet);
-}
-
-void
-send_ok_response(struct tcp_pcb *tpcb, uint8_t ack, uint16_t msg_id, uint16_t length)
-{
-  packet_t *packet = (packet_t *)tx_buf;
-
-  packet->header.cmd_ack = ack;
-  packet->header.msg_id = msg_id;
-  packet->header.length = length;
-
-  send_response(tpcb, packet);
-}
-
-// TCP commands
 
 uint8_t
 flash_erase(packet_t *packet, packet_t *out_packet, uint16_t *out_len)
@@ -303,14 +246,17 @@ get_info_handle(packet_t *in_packet, packet_t *out_packet, uint16_t *out_len)
   char *last = strncpy(out_packet->data.get_info.name, shared.name, MAX_NAME_LEN);
 
   if (last == NULL) {
-    return -1;
+    return ACK_PARAM_ERR;
   }
-  
-  uint16_t len = strlen(out_packet->data.get_info.name);
 
   pico_get_unique_board_id((pico_unique_board_id_t *) &out_packet->data.get_info.uuid);
   
-  *out_len = len + 8;
+  out_packet->data.get_info.role = ROLE_WATERER;
+
+  struct netif *n = &cyw43_state.netif[CYW43_ITF_STA];
+  out_packet->data.get_info.ip = netif_ip4_addr(n)->addr;
+  
+  *out_len = sizeof(get_info_t);
 
   return ACK_OK;
 }
@@ -377,5 +323,28 @@ set_water_thresh_cmd(packet_t *in_packet, packet_t *out_packet, uint16_t *out_le
 
   *out_len = 0;
   
+  return ACK_OK;
+}
+
+uint8_t
+peer_discovery_handle(packet_t *in_packet, packet_t *out_packet, uint16_t *out_len)
+{
+  if (in_packet->header.length != sizeof(peer_discovery_t)) {
+    return ACK_LEN_ERR;
+  }
+
+  *out_len = 0;
+
+  if (displayer_ip_received) {
+        return ACK_OK; 
+    }
+
+  peer_discovery_t *resp = &(in_packet->data.peer_discovery);
+  
+  if (resp->role == ROLE_DISPLAYER) {
+    ip_addr_set_ip4_u32(&displayer_ip, resp->ip);
+    
+    displayer_ip_received = true;
+  }
   return ACK_OK;
 }

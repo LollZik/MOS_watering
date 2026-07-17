@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include "proto.h"
 
-struct tcp_pcb *display_tcp = NULL;
+extern struct tcp_pcb *display_tcp;
 packet_t rx_packet = {0};
 volatile bool raw_packet_ready = false;
 
@@ -25,7 +25,6 @@ static err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, er
     memcpy(&rx_packet, p->payload, len);
     
     raw_packet_ready = true;
-
     tcp_recved(tpcb, p->tot_len);
     pbuf_free(p);
 

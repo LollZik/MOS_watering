@@ -52,6 +52,7 @@ void add_to_ctxs(const int fd)
     pico_ctxs[pico_count].cur_slot_id = 0xFF;
     pico_ctxs[pico_count].intern_state = INIT;
     pico_ctxs[pico_count].recv_len = 0;
+    pico_ctxs[pico_count].role = ROLE_UNKNOWN;
     memset(pico_ctxs[pico_count].recv_buf, 0, MAX_DATA_LEN);
 
     struct timespec ts;

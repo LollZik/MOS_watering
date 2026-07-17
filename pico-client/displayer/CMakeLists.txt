@@ -19,6 +19,9 @@ add_executable(displayer
     text_renderer.c
     disp_task.c
     comm_task.c
+    dispatch_table.c
+    ../common/dispatcher.c
+    ../common/tcp_client.c
     ../common/wd_task.c
     ../common/sched.c
 )
@@ -46,7 +49,7 @@ target_link_libraries(displayer
 target_compile_definitions(${target_name} PUBLIC
     WIFI_SSID="${WIFI_SSID}"
     WIFI_PASS="${WIFI_PASS}"
-    DISPLAYER_IP="${DISPLAYER_IP}"
+    TEST_TCP_SERVER_IP="${TEST_TCP_SERVER_IP}"
 )
 
 pico_add_extra_outputs(displayer)

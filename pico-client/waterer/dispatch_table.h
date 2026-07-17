@@ -5,13 +5,10 @@
 #include "proto.h"
 #include "lwip/tcp.h"
 
-typedef uint8_t (*handle_packet)(packet_t *in_packet, packet_t *out_packet, uint16_t *out_len);
+#include "dispatcher.h"
 
-void dispatch(packet_t *packet, uint16_t len, struct tcp_pcb *tpcb);
-
-void send_response(struct tcp_pcb *tpcb, packet_t *packet);
-void send_error_response(struct tcp_pcb *tpcb, uint8_t ack, uint16_t msg_id);
-void send_ok_response(struct tcp_pcb *tpcb, uint8_t ack, uint16_t msg_id, uint16_t length);
+extern volatile bool displayer_ip_received;
+extern ip_addr_t displayer_ip;
 
 // TCP commands
 uint8_t get_watering_ctx(packet_t *in_packet, packet_t *out_packet, uint16_t *out_len);
@@ -32,5 +29,7 @@ uint8_t get_info_handle(packet_t *in_packet, packet_t *out_packet, uint16_t *out
 uint8_t trigger_water(packet_t *in_packet, packet_t *out_packet, uint16_t *out_len);
 uint8_t set_watering_time_cmd(packet_t *in_packet, packet_t *out_packet, uint16_t *out_len);
 uint8_t set_water_thresh_cmd(packet_t *in_packet, packet_t *out_packet, uint16_t *out_len);
+
+uint8_t peer_discovery_handle(packet_t *in_packet, packet_t *out_packet, uint16_t *out_len);
 
 extern handle_packet dispatch_table[256];

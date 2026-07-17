@@ -8,15 +8,13 @@
 #include "text_renderer.h"
 #include "sched.h"
 
-#define MAX_PUMPS 8
-
 #define WAIT_TIME 10000
 
 extern volatile bool new_data;
-extern uint16_t current_moisture[MAX_PUMPS];
-extern bool pump_active[MAX_PUMPS];
 extern uint8_t battery_level;
 extern uint8_t water_level;
+extern uint16_t temp_level;
+extern uint16_t moist_level;
 
 typedef enum {
     STATE_CHECK_DATA,
@@ -43,36 +41,20 @@ int disp_task(void) {
             if (!new_data) {
                 return WAIT_TIME;
             }
-
             new_data = false;
             clear_buffer();
-            char buf[32];
-            snprintf(buf, sizeof(buf), "Bat: %d%%  Water: %d%%", battery_level, water_level);
-            draw_string(10, 10, buf);
-
-            int y_start = 40;
-            int y_step = 20;
-            int drawn = 0;
-
-            for (int i = 0; i < MAX_PUMPS; i++) {
-                if(!pump_active[i]){
-                    continue;
-                }
-
-                snprintf(buf, sizeof(buf), "CH%d:%4d", i, current_moisture[i]);
-        
-                int x_pos = (drawn / 4) * 60 + 5;
-                int y_pos = y_start + ((drawn % 4) * y_step);
-        
-                draw_string(x_pos, y_pos, buf);
-                drawn++;
-            }
-
-            if (drawn == 0) {
-                draw_string(10, 60, "No active pumps");
-            }
-
+            char buf[64];
+            
+            snprintf(buf, sizeof(buf), 
+                     "Battery: %d%%\n"
+                     "Water: %d%%\n"
+                     "Temp: %u\n"
+                     "CH0 Moist: %u", 
+                     battery_level, water_level, temp_level, moist_level);
+            
+            draw_string(5, 5, buf);
             draw_logo();
+            
             epd_write_framebuffer(framebuf);
             epd_trigger_refresh();
 

@@ -20,6 +20,7 @@
 
 #define SET_NAME_CMD                    0xD0
 #define GET_INFO_CMD                    0xD1
+#define PEER_DISCOVERY_CMD              0xD2
 
 #define RESET_PICO_CMD                  0xE0
 
@@ -39,6 +40,10 @@
 
 #define ACK_OK                          0x00
 #define MAX_PUMPS 8
+
+#define ROLE_UNKNOWN                    0x00
+#define ROLE_DISPLAYER                  0x01
+#define ROLE_WATERER                    0x02
 
 #include <stdint.h>
 
@@ -80,6 +85,8 @@ typedef struct set_name {
 typedef struct get_info {
   uint64_t      uuid;  
   uint8_t       name[MAX_NAME_LEN];
+  uint8_t       role;
+  uint32_t      ip;
 } get_info_t;
 
 typedef struct get_watering_ctx {
@@ -102,6 +109,10 @@ typedef struct set_watering_threshold {
   uint16_t      threshold;
 } set_watering_threshold_t;
 
+typedef struct peer_discovery {
+  uint8_t role;
+  uint32_t ip;
+} peer_discovery_t;
 
 typedef union packet_data {
   uint8_t                   buf[MAX_DATA_LEN];
@@ -116,6 +127,7 @@ typedef union packet_data {
   trigger_water_ctx_t       trigger_water;
   set_watering_time_t       set_water;
   set_watering_threshold_t  set_thresh;
+  peer_discovery_t          peer_discovery;
 } packet_data_t;
 
 typedef struct packet {

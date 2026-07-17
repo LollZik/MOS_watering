@@ -149,6 +149,9 @@ get_info_handle(packet_t *in_packet, pico_ctx_t *pico_ctx)
   get_info_t *info_pack = &(in_packet->data.get_info);
   memcpy(&pico_ctx->pico_id, &info_pack->uuid, sizeof(info_pack->uuid));
   strncpy(pico_ctx->pico_name, info_pack->name, MAX_NAME_LEN);
+    
+  pico_ctx->role = info_pack->role;
+  pico_ctx->ip   = info_pack->ip;
 
   log_info("Got %s name from ID:%08X%08X\n", 
       pico_ctx->pico_name, pico_ctx->pico_id >> 32, pico_ctx->pico_id);
