@@ -1,3 +1,12 @@
+cmake_minimum_required(VERSION 3.13)
+
+set(PICO_BOARD pico_w)
+
+if (NOT TARGET pico_stdlib)
+  include(pico_sdk_import.cmake)
+  project(watering LANGUAGES C CXX ASM VERSION 0.0.1)
+endif()
+
 function(create_slot_target slot_name flash_offset)
   set(
     FLASH_ORIGIN ${flash_offset}
@@ -8,8 +17,17 @@ function(create_slot_target slot_name flash_offset)
 
   add_executable(${target_name}
     main.c
-    dispatcher.c
-    sched.c
+    dispatch_table.c
+    moist_task.c
+    temp_task.c
+    water_task.c
+    disp_task.c
+    uart_task.c
+    gpio_irq.c
+    ../common/tcp_client.c
+    ../common/dispatcher.c
+    ../common/sched.c
+    ../common/wd_task.c
     ../common/shared_mem.c
     ${CMAKE_SOURCE_DIR}/common/crc.c
     ${CMAKE_SOURCE_DIR}/../common/helpers.c
@@ -22,6 +40,7 @@ function(create_slot_target slot_name flash_offset)
     ${CMAKE_CURRENT_LIST_DIR}
     ${CMAKE_CURRENT_LIST_DIR}/common/
     ${CMAKE_CURRENT_LIST_DIR}/..
+    ${CMAKE_CURRENT_LIST_DIR}/../common/
   )
 
   target_link_libraries(${target_name}
@@ -33,6 +52,9 @@ function(create_slot_target slot_name flash_offset)
     hardware_clocks
     hardware_rosc
     hardware_irq
+    hardware_spi
+    hardware_adc
+    hardware_watchdog
   )
 
   # Create linker script with correct origin
@@ -44,10 +66,8 @@ function(create_slot_target slot_name flash_offset)
     @ONLY
   )
 
-  # Use the custom linker script
   pico_set_linker_script(${target_name} "${linker_script}")
 
-  # Add extra outputs
   pico_add_extra_outputs(${target_name})
 
   # Rename output files

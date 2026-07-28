@@ -3,16 +3,13 @@
 #define TASK_DISABLED 0
 #define TASK_ENABLED  1
 
-#define UART_TASK_INDEX     0
-#define DISP_TASK_INDEX     1
-#define WD_TASK_INDEX       2
-#define WATER_TASK_INDEX    3
-#define MOIST_TASK_INDEX    4
-#define TEMP_TASK_INDEX     5
+#define MAX_TASKS 16
 
 #include "hardware/sync.h"
 #include "pico/time.h"
 #include <stdint.h>
+#include <stdbool.h>
+#include <stddef.h>
 
 typedef int (*task_fn)(void);
 typedef int (*task_init_fn)(void);
@@ -21,7 +18,7 @@ typedef struct task_ctx {
   absolute_time_t deadline;
   uint32_t timeout_ms;
 
-  char *name;
+  const char *name;
 
   task_fn realise;
   task_init_fn init;
@@ -29,13 +26,15 @@ typedef struct task_ctx {
   volatile uint8_t task_en;
 } task_ctx_t;
 
-extern task_ctx_t *tasks;
+extern task_ctx_t *tasks[MAX_TASKS];
 extern volatile bool should_wake_up;
 
-inline void
+static inline void
 disable_task(task_ctx_t *task) 
 {
-  task->task_en = TASK_DISABLED;
+  if (task) {
+    task->task_en = TASK_DISABLED;
+  }
 }
 
 void enable_task(task_ctx_t *task);
@@ -43,3 +42,16 @@ void enable_task(task_ctx_t *task);
 void __run_sched(void);
 int add_task(task_ctx_t *task);
 uint32_t get_task_count(void);
+
+#define REGISTER_TASK(_name, _timeout_ms, _task_fn, _init_fn, _task_en) \
+  task_ctx_t _task_fn##_ctx = { \
+    .timeout_ms = _timeout_ms, \
+    .name = _name, \
+    .realise = _task_fn, \
+    .init = _init_fn, \
+    .task_en = _task_en \
+  }; \
+  static void __attribute__((constructor)) _register_##_task_fn(void) { \
+    add_task(&_task_fn##_ctx); \
+  }
+

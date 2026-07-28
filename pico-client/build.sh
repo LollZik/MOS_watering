@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 if [[ -z ${WIFI_SSID} ]]; then
   echo "Set WIFI_SSID env variable as WIFI name";

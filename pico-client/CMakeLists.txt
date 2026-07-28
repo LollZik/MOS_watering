@@ -16,6 +16,7 @@ include_directories(../common/)
 
 add_subdirectory(bootloader/)
 add_subdirectory(waterer/)
+add_subdirectory(displayer/)
 
 set(COMBINED_UF2 ${CMAKE_BINARY_DIR}/combined.uf2)
 

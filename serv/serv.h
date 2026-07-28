@@ -31,6 +31,9 @@ struct pico_ctx {
   uint16_t last_msg_id;
   uint64_t pico_id;
 
+  uint8_t  role;
+  uint32_t ip;
+
   uint8_t pico_name[MAX_NAME_LEN];
 
   bool action_completed;

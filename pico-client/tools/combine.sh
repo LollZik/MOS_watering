@@ -98,9 +98,9 @@ calculate_and_append_crc() {
 
     # Append CRC32 bytes to the end of slot
     python3 -c "
-    with open('${temp_file}', 'ab') as myfile:
-      myfile.write(bytearray.fromhex('${crc_value}'))
-    "
+with open('${temp_file}', 'ab') as myfile:
+    myfile.write(bytearray.fromhex('${crc_value}'))
+"
 
     echo "${temp_file}"
 }

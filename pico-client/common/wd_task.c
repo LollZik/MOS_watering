@@ -2,6 +2,8 @@
 
 #include <stdio.h>
 
+#include "sched.h"
+
 #define WATCHDOG_TIMEOUT_MS 8000
 #define WATCHDOG_UPDATE_MS  4000
 
@@ -20,3 +22,6 @@ wd_init(void)
 
   return 0;
 }
+
+REGISTER_TASK("Watchdog task", 4000, wd_task, wd_init, true);
+

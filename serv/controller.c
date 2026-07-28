@@ -15,6 +15,7 @@
 #define PART_TO_OFFSET(x)           (MAX_FLASH_DATA*(x))
 
 uint8_t slot_binary[2][SLOT_BINARY_SIZE];
+uint32_t displayer_ip = 0;
 
 int
 end_init_callback(packet_t *in_packet, pico_ctx_t *pico_ctx)
@@ -23,8 +24,26 @@ end_init_callback(packet_t *in_packet, pico_ctx_t *pico_ctx)
   pico_ctx->packet_callback = NULL;
   pico_ctx->pico_id = (uint64_t )in_packet->data.get_info.uuid;
 
-  create_get_ctx_packet(0xDD, pico_ctx);
-  send_packet(pico_ctx);
+  if (pico_ctx->role == ROLE_WATERER) {
+    if (displayer_ip != 0) {
+      create_peer_discovery_packet(0x01, pico_ctx, ROLE_DISPLAYER, displayer_ip);
+      send_packet(pico_ctx);
+    }
+    
+    create_get_ctx_packet(0xDD, pico_ctx);
+    send_packet(pico_ctx);
+
+  }
+  else if (pico_ctx->role == ROLE_DISPLAYER) {
+    displayer_ip = pico_ctx->ip;
+    log_info("Registered Displayer's IP: %u\n", displayer_ip);
+    for (uint32_t i = 0; i < pico_count; i++) {
+      if (pico_ctxs[i].role == ROLE_WATERER) {
+        create_peer_discovery_packet(0x02, &pico_ctxs[i], ROLE_DISPLAYER, displayer_ip);
+        send_packet(&pico_ctxs[i]);
+      }
+    }
+  }
 
   wakeup_controller();
 
@@ -98,8 +117,10 @@ main_controller(void *args)
         case RUNNING:
           {
             if (state_deadline <= now.tv_sec) {
-              create_get_ctx_packet(0xDD, &pico_ctxs[i]);
-              send_packet(&pico_ctxs[i]);
+              if (pico_ctxs[i].role == ROLE_WATERER) {
+                  create_get_ctx_packet(0xDD, &pico_ctxs[i]);
+                  send_packet(&pico_ctxs[i]);
+              }
 
               if (clock_gettime(CLOCK_REALTIME, &now) != 0) {
                 log_crit("clock_gettime failed\n");

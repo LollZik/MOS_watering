@@ -1,5 +1,7 @@
 #include "shared_mem.h"
 #include "sched.h"
+#include "hardware/gpio.h"
+#include "pins.h"
 
 #define WAIT 0
 #define WATER 1
@@ -7,11 +9,13 @@
 
 static uint8_t cur_state = WAIT;
 
+extern task_ctx_t water_task_ctx;
+
 void
 start_watering(void)
 {
   cur_state = WATER;
-  enable_task(&(tasks[WATER_TASK_INDEX]));
+  enable_task(&water_task_ctx);
 }
 
 int
@@ -25,6 +29,8 @@ water_init(void)
 {
   gpio_init(GPIO_WATERING_PIN);
   gpio_set_dir(GPIO_WATERING_PIN, GPIO_OUT);
+  gpio_put(GPIO_WATERING_PIN, 0U);
+  return 0;
 }
 
 int
@@ -57,3 +63,5 @@ water_task(void)
 
   return 2900;
 }
+
+REGISTER_TASK("Watering task", -1, water_task, water_init, false);

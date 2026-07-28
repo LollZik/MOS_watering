@@ -30,3 +30,4 @@ void create_get_ctx_packet(const uint16_t msg_id, pico_ctx_t *pico_ctx);
 void create_water_trigger_packet(const uint16_t msg_id, pico_ctx_t *pico_ctx, const uint32_t time_ms);
 void create_water_threshold_packet(const uint16_t msg_id, pico_ctx_t *pico_ctx, const uint16_t threshold);
 void create_watering_time_packet(const uint16_t msg_id, pico_ctx_t *pico_ctx, const uint32_t time_ms);
+void create_peer_discovery_packet(const uint16_t msg_id, pico_ctx_t *pico_ctx, const uint8_t role, const uint32_t ip);
