@@ -1,9 +1,9 @@
-all: ninja build
+all: build ninja
 
 build:
 	./build.sh
 
-ninja:
+ninja: build
 	ninja -C build/
 
 clean:
