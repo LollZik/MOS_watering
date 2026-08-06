@@ -1,5 +1,6 @@
 #!/bin/bash
 set -e
+PICOTOOL="${6:-picotool}"
 
 BOOTLOADER_OFFSET=$(($1 - 0x10000000))
 SLOT0_OFFSET=$(($2 - 0x10000000))
@@ -150,8 +151,8 @@ extract_and_place_with_crc ${SLOT2_BIN} ${SLOT2_OFFSET} "slot2"
 
 # Convert to UF2 using picotool
 echo "Converting to UF2..."
-picotool uf2 convert ${COMBINED_BIN} ${COMBINED_UF2}
+"$PICOTOOL" uf2 convert ${COMBINED_BIN} ${COMBINED_UF2}
 
 # Get file info
 echo -e "\n=== Combined UF2 Info ==="
-picotool info ${COMBINED_UF2}
+"$PICOTOOL" info ${COMBINED_UF2}
