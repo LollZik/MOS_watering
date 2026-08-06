@@ -137,9 +137,10 @@ main_controller(void *args)
       
               if (pico_ctxs[i].is_connected == 0xDD)
               {
-                if (int ret = cloud_post_telemetry(pico_ctxs[i].pico_id, pico_ctxs[i].watering_ctx.moisture_lvl,
+                const int ret = cloud_post_telemetry(pico_ctxs[i].pico_id, pico_ctxs[i].watering_ctx.moisture_lvl,
                   pico_ctxs[i].watering_ctx.water_lvl, pico_ctxs[i].watering_ctx.battery_lvl,
-                  pico_ctxs[i].watering_ctx.uptime, pico_ctxs[i].watering_ctx.temp_lvl) ) {
+                  pico_ctxs[i].watering_ctx.uptime, pico_ctxs[i].watering_ctx.temp_lvl);
+                if(ret) {
                   log_err("Failed to post telemetry, err: %u\n", ret);
                 }
               }
