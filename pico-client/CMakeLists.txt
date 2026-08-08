@@ -39,6 +39,7 @@ add_custom_command(
     COMMAND ${CMAKE_SOURCE_DIR}/tools/combine.sh ${BOOTLOADER_ORIGIN} ${SLOT0_ORIGIN}
                                                  ${SLOT1_ORIGIN} ${SLOT2_ORIGIN}
                                                  ${CRC_SEED}
+                                                 $<TARGET_FILE:picotool>
     DEPENDS
         ${CMAKE_BINARY_DIR}/bootloader/bootloader.elf
         ${CMAKE_BINARY_DIR}/waterer/watering_slot0.elf
