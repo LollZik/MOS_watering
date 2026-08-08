@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: ["master"]
+  pull_request:
+    branches: ["master"]
+
+jobs:
+  build-docker:
+    name: Build and Save Docker Image
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t water-builder .
+
+      - name: Save Docker image
+        run: docker save -o water-builder.tar water-builder
+
+      - name: Upload Docker image as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-builder-artifact
+          path: water-builder.tar
+          retention-days: 1
+
+  build-firmware:
+    name: Build Firmware in Docker
+    needs: build-docker
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download Docker image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-builder-artifact
+
+      - name: Load Docker image
+        run: docker load -i water-builder.tar
+
+      - name: Compile Firmware and Server
+        run: |
+            docker run --rm -v ${{ github.workspace }}:/workspace \
+                -e WIFI_SSID="${{ secrets.WIFI_SSID }}" \
+                -e WIFI_PASS="${{ secrets.WIFI_PASS }}" \
+                -e TEST_TCP_SERVER_IP="${{ secrets.TEST_TCP_SERVER_IP }}" \
+                -e API_KEY="${{ secrets.API_KEY }}" \
+                -e REDIS_PASS="${{ secrets.REDIS_PASS }}" \
+                -e ENDPOINT="localhost" \
+                water-builder bash -c "
+                git config --global --add safe.directory /workspace && \
+                cd /workspace/pico-client && \
+                chmod +x build.sh && \
+                make && \
+
+                cd /workspace/serv && \
+                chmod +x build.sh && \
+                make
+                "
+
+      - name: Upload Pico
+        uses: actions/upload-artifact@v4
+        with:
+          name: pico-firmware
+          path: |
+            pico-client/build/combined.uf2
+            pico-client/build/displayer/displayer.uf2
+          retention-days: 7
+
+      - name: Upload Server
+        uses: actions/upload-artifact@v4
+        with:
+          name: watering-server
+          path: serv/build/watering_server
+          retention-days: 7
