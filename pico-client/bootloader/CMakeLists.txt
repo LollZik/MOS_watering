@@ -3,14 +3,22 @@ project(bootloader C CXX ASM)
 add_executable(${PROJECT_NAME}
   main.c
   syscalls.c
-  ../common/shared_mem.c
+  hal_bootloader.c
+  ../common/hal/src/hal_memory.c
+  ../common/hal/src/hal_crc.c
 )
+target_include_directories(${PROJECT_NAME} PRIVATE
+  .
+  ../common/hal/include
+  )
 
-pico_set_linker_script(${PROJECT_NAME} ${CMAKE_SOURCE_DIR}/bootloader/bootloader.ld)
+pico_set_linker_script(${PROJECT_NAME} ${CMAKE_CURRENT_LIST_DIR}/bootloader.ld)
 
 target_link_libraries(${PROJECT_NAME}
-  hardware_clocks
   hardware_watchdog
+  hardware_timer
+  hardware_irq
+  hardware_clocks
   hardware_resets
   hardware_dma
   hardware_flash

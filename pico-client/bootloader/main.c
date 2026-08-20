@@ -1,17 +1,11 @@
-#include "RP2040.h"
+#include "hal_bootloader.h"
+#include "hal_memory.h"
+#include "hal_crc.h"
 
-#include "crc.c"
-#include "slot.h"
-#include "shared_mem.h"
-
-#include "hardware/resets.h"
-#include "hardware/regs/m0plus.h"
-#include "pico/binary_info.h"
-
-bool
+uint8_t
 validate_crc(watering_slot_t *slot)
 {
-  const uint32_t exp_crc = crc32(slot->data, SLOT_SIZE);
+  const uint32_t exp_crc = hal_crc32(slot->data, SLOT_SIZE);
 
   return (slot->crc == exp_crc);
 }
@@ -24,8 +18,8 @@ int main();
 void exit(int ret)
 {
   (void)ret;
-  while (true){
-    tight_loop_contents();
+  while (1){
+    hal_bootloader_tight_loop();
   }
   main();
 }
@@ -41,30 +35,16 @@ int atexit(void *a, void (*f)(void*), void *d)
   return 0;
 }
 
-void jump_to_app(watering_slot_t *slot)
-{
-  asm volatile (
-      "mov r0, %[start]\n"
-      "ldr r1, =%[vtable]\n"
-      "str r0, [r1]\n"
-      "ldmia r0, {r0, r1}\n"
-      "msr msp, r0\n"
-      "bx r1\n"
-      :
-      : [start] "r" ((uint32_t )slot + 0x100), [vtable] "X" (PPB_BASE + M0PLUS_VTOR_OFFSET)
-      :
-      );
-}
-
 int main(void)
 {
-  unreset_block_wait(RESETS_RESET_DMA_BITS);
+  hal_crc_init();
 
-  const uint8_t slot_id = get_running_slot_id();
+  const uint8_t slot_id = hal_memory_get_running_slot_id();
 
   if (validate_crc(slots[slot_id])) {
-    reset_block(RESETS_RESET_DMA_BITS);
-
-    jump_to_app(slots[slot_id]);
+    hal_crc_deinit();
+    hal_bootloader_jump_to_app(slots[slot_id]);
   }
+
+  return 0;
 }
