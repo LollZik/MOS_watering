@@ -187,7 +187,7 @@ tcp_client_init(const char* ip_addr, struct tcp_pcb **out_ptr)
 }
 
 bool
-hal_client_init_and_connect(const char* ip_addr, hal_net_conn_t *out_ptr)
+hal_network_init_and_connect(const char* ip_addr, hal_net_conn_t *out_ptr)
 {
   
   TCP_CLIENT_T *state = tcp_client_init(ip_addr, (struct tcp_pcb **)out_ptr);

@@ -9,3 +9,5 @@ void hal_system_watchdog_feed(void);
 void hal_system_irq_init(void);
 uint64_t hal_system_get_time_us(void);
 void hal_system_sleep_until_us(uint64_t deadline_us);
+
+void hal_system_tight_loop(void);

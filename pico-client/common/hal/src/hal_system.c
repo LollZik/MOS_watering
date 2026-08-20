@@ -88,3 +88,9 @@ hal_system_sleep_until_us(uint64_t deadline_us)
         }
     }
 }
+
+void
+hal_system_tight_loop(void)
+{
+    tight_loop_contents();
+}
