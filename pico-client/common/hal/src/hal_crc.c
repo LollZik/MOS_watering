@@ -3,10 +3,10 @@
 #include <stdbool.h>
 
 #include "hardware/dma.h"
+#include "hal_crc.h"
 
-#include "crc.h"
-
-uint32_t crc32(const void *data, size_t len)
+uint32_t
+hal_crc32(const void *data, size_t len)
 {
     // Nothing else is running on the system, so it doesn't matter which
     // DMA channel we use
