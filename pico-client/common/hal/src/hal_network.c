@@ -1,15 +1,15 @@
-#include "tcp_client.h"
+#include "hal_network.h"
+#include "hal_system.h"
 
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 
 #include "pico/cyw43_arch.h"
 #include "lwip/pbuf.h"
+#include "lwip/tcp.h"
 
 #include "proto.h"
-#include "shared_mem.h"
-#include "pico/time.h"
-#include "pico/sync.h"
 #include "dispatcher.h"
 
 #define BUF_SIZE MAX_FLASH_DATA
@@ -26,10 +26,12 @@ typedef struct TCP_CLIENT_T_ {
   bool complete;
   int run_count;
   bool connected;
-  struct tcp_pcb **out_tcp_ptr;
+  hal_net_conn_t *out_conn_ptr;
 } TCP_CLIENT_T;
 
-static err_t tcp_client_close(void *arg) {
+static err_t
+tcp_client_close(void *arg)
+{
   TCP_CLIENT_T *state = (TCP_CLIENT_T*)arg;
   err_t err = ERR_OK;
   if (state->tcp_pcb != NULL) {
@@ -47,37 +49,45 @@ static err_t tcp_client_close(void *arg) {
     state->tcp_pcb = NULL;
   }
   if (state != NULL) {
-      free(state);
+    free(state);
   }
   return err;
 }
 
-static err_t tcp_client_sent(void *arg, struct tcp_pcb *tpcb, u16_t len) {
+static err_t
+tcp_client_sent(void *arg, struct tcp_pcb *tpcb, u16_t len)
+{
   TCP_CLIENT_T *state = (TCP_CLIENT_T*)arg;
   state->sent_len += len;
 
   return ERR_OK;
 }
 
-static err_t tcp_client_connected(void *arg, struct tcp_pcb *tpcb, err_t err) {
+static err_t
+tcp_client_connected(void *arg, struct tcp_pcb *tpcb, err_t err)
+{
   TCP_CLIENT_T *state = (TCP_CLIENT_T*)arg;
 
   if (err != ERR_OK) {
     return -1;
   }
 
-  if (state->out_tcp_ptr != NULL) {
-      *(state->out_tcp_ptr) = state->tcp_pcb; 
+  if (state->out_conn_ptr != NULL) {
+    *(state->out_conn_ptr) = (hal_net_conn_t)state->tcp_pcb; 
   }
   state->connected = true;
   return ERR_OK;
 }
 
-static err_t tcp_client_poll(void *arg, struct tcp_pcb *tpcb) {
+static err_t
+tcp_client_poll(void *arg, struct tcp_pcb *tpcb)
+{
   return 0;
 }
 
-static void tcp_client_err(void *arg, err_t err) {
+static void
+tcp_client_err(void *arg, err_t err)
+{
   TCP_CLIENT_T *state = (TCP_CLIENT_T*)arg;
   if (state) {
     state->tcp_pcb = NULL; 
@@ -85,7 +95,9 @@ static void tcp_client_err(void *arg, err_t err) {
   }
 }
 
-err_t tcp_client_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err) {
+err_t
+tcp_client_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err)
+{
   TCP_CLIENT_T *state = (TCP_CLIENT_T*) arg;
 
   cyw43_arch_lwip_check();
@@ -100,7 +112,7 @@ err_t tcp_client_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err
     uint16_t to_copy = p->tot_len > room ? room : p->tot_len;
 
     state->buffer_len += pbuf_copy_partial(p, state->buffer + state->buffer_len,
-        to_copy, 0);
+      to_copy, 0);
     
     size_t offset = 0;
     while (((size_t)state->buffer_len - offset) >= sizeof(header_t)){
@@ -137,7 +149,9 @@ err_t tcp_client_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err
   return ERR_OK;
 }
 
-static bool tcp_client_open(void *arg) {
+static bool
+tcp_client_open(void *arg)
+{
   TCP_CLIENT_T *state = (TCP_CLIENT_T*)arg;
   state->tcp_pcb = tcp_new_ip_type(IP_GET_TYPE(&state->remote_addr));
   if (!state->tcp_pcb) {
@@ -159,18 +173,22 @@ static bool tcp_client_open(void *arg) {
   return err == ERR_OK;
 }
 
-static TCP_CLIENT_T* tcp_client_init(const char* ip_addr, struct tcp_pcb **out_ptr) {
+static TCP_CLIENT_T *
+tcp_client_init(const char* ip_addr, hal_net_conn_t *out_ptr)
+{
   TCP_CLIENT_T *state = calloc(1, sizeof(TCP_CLIENT_T));
   if (!state) {
     return NULL;
   }
 
   ip4addr_aton(ip_addr, &state->remote_addr);
-  state->out_tcp_ptr = out_ptr;
+  state->out_conn_ptr = out_ptr;
   return state;
 }
 
-bool tcp_client_init_and_connect(const char* ip_addr, struct tcp_pcb **out_ptr) {
+bool
+hal_network_init_and_connect(const char* ip_addr, hal_net_conn_t *out_ptr)
+{
   
   TCP_CLIENT_T *state = tcp_client_init(ip_addr, out_ptr);
   if (!state) {
@@ -180,15 +198,50 @@ bool tcp_client_init_and_connect(const char* ip_addr, struct tcp_pcb **out_ptr) 
   uint32_t last_try_time = 0;
   while (!state->connected) {
     if (state->tcp_pcb == NULL) {
-      uint32_t current_time = time_us_32();
+      uint32_t current_time = hal_system_get_time_us();
 
       if (current_time - last_try_time > 100000) {
-            tcp_client_open(state);
-            last_try_time = time_us_32();
+          tcp_client_open(state);
+          last_try_time = hal_system_get_time_us();
         }
     }
-    __wfe(); 
+    hal_system_tight_loop();
   }
 
   return true;
+}
+
+void
+hal_network_send(hal_net_conn_t conn, const void *data, uint16_t len)
+{
+  struct tcp_pcb *tpcb = (struct tcp_pcb *)conn;
+  tcp_write(tpcb, data, len, TCP_WRITE_FLAG_MORE);
+}
+
+uint32_t
+hal_network_get_ip_v4(void)
+{
+  struct netif *n = &cyw43_state.netif[CYW43_ITF_STA];
+  return netif_ip4_addr(n)->addr;
+}
+
+void
+hal_network_lock(void)
+{
+  cyw43_arch_lwip_begin();
+}
+
+void
+hal_network_unlock(void)
+{
+  cyw43_arch_lwip_end();
+}
+
+void
+hal_network_flush(hal_net_conn_t conn)
+{
+  struct tcp_pcb *tpcb = (struct tcp_pcb *)conn;
+  if (tpcb != NULL) {
+    tcp_output(tpcb);
+  }
 }

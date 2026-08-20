@@ -1,11 +1,10 @@
 #include <stdio.h>
-#include <time.h>
-
-#include "pico/unique_id.h"
-
-#include "ssd1306.c"
 #include "sched.h"
+#include "hal_qled.h"
+#include "hal_system.h"
 
+#define UPDATE_COUNT 5
+#define SCREEN_DELTA_MS 1000
 #define UPDATE_COUNT 5
 
 #define SCREEN_DELTA_MS 1000
@@ -18,18 +17,18 @@ int
 disp_task(void)
 {
   if (update_count == 0) {
-    init_qled();
+    hal_qled_init();
   }
 
   if (update_count >= UPDATE_COUNT) {
     update_count = 0;
-    SSD1306_disable();
+    hal_qled_disable();
     return -1;
   } else {
     update_count++;
   }
 
-  const uint32_t time_s = to_ms_since_boot(get_absolute_time())/1000;
+  const uint32_t time_s = (uint32_t)(hal_system_get_time_us() / 1000000ULL);
 
   char text[16];
   if (time_s < 60) {
@@ -40,13 +39,19 @@ disp_task(void)
     snprintf(text, 16, "%04u:%02u:%02u", time_s/3600, (time_s%3600), time_s%60);
   }
 
-  char *id;
-  pico_get_unique_board_id_string(id, 16);
-  set_string(id, 0);
-  set_string("Since boot:      ", 1);
-  set_string(text, 2);
+  uint8_t id_bytes[8];
+  hal_system_get_board_id(id_bytes);
 
-  draw();
+  char id_str[17];
+  for (int i = 0; i < 8; i++) 
+  {
+    sprintf(&id_str[i * 2], "%02X", id_bytes[i]); 
+  }
+
+  hal_qled_set_string(id_str, 0);
+  hal_qled_set_string("Since boot:      ", 1);
+  hal_qled_set_string(text, 2);
+  hal_qled_draw();
 
   return SCREEN_DELTA_MS;
 }
@@ -54,7 +59,7 @@ disp_task(void)
 int
 disp_init(void)
 {
-  init_qled();
+  hal_qled_init();
 
   return 3000;
 }

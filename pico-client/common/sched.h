@@ -5,8 +5,6 @@
 
 #define MAX_TASKS 16
 
-#include "hardware/sync.h"
-#include "pico/time.h"
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -15,7 +13,7 @@ typedef int (*task_fn)(void);
 typedef int (*task_init_fn)(void);
 
 typedef struct task_ctx {
-  absolute_time_t deadline;
+  uint64_t deadline;
   uint32_t timeout_ms;
 
   const char *name;

@@ -1,6 +1,7 @@
-#include "shared_mem.h"
+#include <assert.h>
+#include "hal_memory.h"
 #include "sched.h"
-#include "hardware/gpio.h"
+#include "hal_gpio.h"
 #include "pins.h"
 
 #define WAIT 0
@@ -27,9 +28,7 @@ set_watering_time(uint32_t ms)
 int
 water_init(void)
 {
-  gpio_init(GPIO_WATERING_PIN);
-  gpio_set_dir(GPIO_WATERING_PIN, GPIO_OUT);
-  gpio_put(GPIO_WATERING_PIN, 0U);
+  hal_gpio_init_out(GPIO_WATERING_PIN, false);
   return 0;
 }
 
@@ -45,13 +44,13 @@ water_task(void)
       }
     case WATER:
       {
-        gpio_put(GPIO_WATERING_PIN, 1U);
+        hal_gpio_set(GPIO_WATERING_PIN, true);
         cur_state = END_WATER;
         return ram_shared.watering_time;
       }
     case END_WATER:
       {
-        gpio_put(GPIO_WATERING_PIN, 0U);
+        hal_gpio_set(GPIO_WATERING_PIN, false);
         cur_state = WAIT;
         return -1;
       }
