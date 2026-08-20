@@ -1,34 +1,31 @@
 #include <string.h>
-
-#include "pico/time.h"
-#include "pico/unique_id.h"
-#include "pico/cyw43_arch.h"
-
-#include "hardware/flash.h"
-#include "hardware/sync.h"
-#include "shared_mem.h"
+#include <stdio.h>
 
 #include "dispatcher.h"
-#include "reset.h"
+#include "hal_network.h"
 
 
 uint8_t tx_buf[sizeof(packet_t)];
 
 extern handle_packet dispatch_table[256];
 
+static void send_response(hal_net_conn_t conn, packet_t *packet);
+static void send_error_response(hal_net_conn_t conn, uint8_t ack, uint16_t msg_id);
+static void send_ok_response(hal_net_conn_t conn, uint8_t ack, uint16_t msg_id, uint16_t length);
+
 void
-dispatch(packet_t *in_packet, uint16_t len, struct tcp_pcb *tpcb)
+dispatch(packet_t *in_packet, uint16_t len, hal_net_conn_t conn)
 {
   const uint8_t cmd = in_packet->header.cmd_ack;
   const uint16_t msg_id = in_packet->header.msg_id;
 
   if (dispatch_table[cmd] == NULL) {
-    send_error_response(tpcb, ACK_CMD_ERR, msg_id);
+    send_error_response(conn, ACK_CMD_ERR, msg_id);
     return;
   }
 
   if (len != sizeof(header_t) + in_packet->header.length) {
-    send_error_response(tpcb, ACK_LEN_ERR, msg_id);
+    send_error_response(conn, ACK_LEN_ERR, msg_id);
     return;
   }
 
@@ -39,22 +36,19 @@ dispatch(packet_t *in_packet, uint16_t len, struct tcp_pcb *tpcb)
     ack = cmd;
   }
 
-  send_ok_response(tpcb, ack, msg_id, resp_len);
+  send_ok_response(conn, ack, msg_id, resp_len);
 }
 
-void
-send_response(struct tcp_pcb *tpcb, packet_t *packet)
+static void
+send_response(hal_net_conn_t conn, packet_t *packet)
 {
-
-  uint8_t *data = (uint8_t *)packet;
-
   printf("Sending packet of size :%u, header: %02X\n", sizeof(header_t) + packet->header.length, packet->header.cmd_ack);
 
-  tcp_write(tpcb, packet, (sizeof(header_t) + packet->header.length), TCP_WRITE_FLAG_MORE);
+  hal_network_send(conn, packet, (sizeof(header_t) + packet->header.length));
 }
 
-void
-send_error_response(struct tcp_pcb *tpcb, uint8_t ack, uint16_t msg_id)
+static void
+send_error_response(hal_net_conn_t conn, uint8_t ack, uint16_t msg_id)
 {
   packet_t *packet = (packet_t *)tx_buf;
 
@@ -62,11 +56,11 @@ send_error_response(struct tcp_pcb *tpcb, uint8_t ack, uint16_t msg_id)
   packet->header.msg_id = msg_id;
   packet->header.length = 0;
 
-  send_response(tpcb, packet);
+  send_response(conn, packet);
 }
 
-void
-send_ok_response(struct tcp_pcb *tpcb, uint8_t ack, uint16_t msg_id, uint16_t length)
+static void
+send_ok_response(hal_net_conn_t conn, uint8_t ack, uint16_t msg_id, uint16_t length)
 {
   packet_t *packet = (packet_t *)tx_buf;
 
@@ -74,7 +68,7 @@ send_ok_response(struct tcp_pcb *tpcb, uint8_t ack, uint16_t msg_id, uint16_t le
   packet->header.msg_id = msg_id;
   packet->header.length = length;
 
-  send_response(tpcb, packet);
+  send_response(conn, packet);
 }
 
 uint8_t 

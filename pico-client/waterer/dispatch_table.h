@@ -1,14 +1,13 @@
 #pragma once
 
-#include <time.h>
+#include <stdint.h>
+#include <stdbool.h>
 
 #include "proto.h"
-#include "lwip/tcp.h"
-
 #include "dispatcher.h"
 
 extern volatile bool displayer_ip_received;
-extern ip_addr_t displayer_ip;
+extern uint32_t displayer_ip;
 
 // TCP commands
 uint8_t get_watering_ctx(packet_t *in_packet, packet_t *out_packet, uint16_t *out_len);
