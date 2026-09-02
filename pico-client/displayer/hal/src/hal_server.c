@@ -1,24 +1,26 @@
-#include "tcp_server.h"
+#include "hal_server.h"
 #include "pico/cyw43_arch.h"
 #include "lwip/tcp.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "proto.h"
+#include "hal_network.h"
 
-extern struct tcp_pcb *display_tcp;
+hal_server_conn_t display_conn = NULL;
+
 packet_t rx_packet_buffer = {0};
 packet_t *rx_packet = &rx_packet_buffer;
 volatile bool raw_packet_ready = false;
 
 static void tcp_server_err(void *arg, err_t err) {
-    display_tcp = NULL;
+    display_conn = NULL;
 }
 
 static err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, err_t err) {
     if (p == NULL) {
         tcp_close(tpcb);
-        display_tcp = NULL;
+        display_conn = NULL;
         return ERR_OK;
     }
 
@@ -37,7 +39,7 @@ static err_t tcp_server_accept(void *arg, struct tcp_pcb *newpcb, err_t err) {
         return ERR_VAL;
     }
 
-    display_tcp = newpcb;
+    display_conn = newpcb;
     tcp_err(newpcb, tcp_server_err);
     tcp_recv(newpcb, tcp_server_recv);
     
@@ -50,13 +52,13 @@ void tcp_server_init(void) {
         return;
     }
 
-    cyw43_arch_lwip_begin();
+    hal_network_lock();
     err_t err = tcp_bind(pcb, IP_ADDR_ANY, LISTEN_PORT);
     
     if (err == ERR_OK) {
         pcb = tcp_listen(pcb);
         tcp_accept(pcb, tcp_server_accept);
     }
-    cyw43_arch_lwip_end();
+    hal_network_unlock();
 }
 

@@ -1,8 +1,32 @@
-#include "ssd1680.h"
+#include "hal_display.h"
 #include "hardware/spi.h"
 #include "pico/stdlib.h"
-#include <stdio.h>
 #include <string.h>
+
+#define SPI_RX_PIN      16
+#define SPI_SCK_PIN     18
+#define SPI_TX_PIN      19
+
+#define DC_PIN          20
+#define RST_PIN         21
+#define BUSY_PIN        22
+#define EN_PIN          26
+#define SRAM_CS_PIN     27
+#define EINK_CS_PIN     17
+
+#define HEIGHT 250
+#define WIDTH 128
+
+#define CMD_DRIVER_OUTPUT_CONTROL          0x01
+#define CMD_SOURCE_DRIVING_VOLTAGE_CONTROL 0x04
+#define CMD_SW_RESET                       0x12
+#define CMD_MASTER_ACTIVATION              0x20
+#define CMD_DISPLAY_UPDATE_CONTROL         0x22
+#define CMD_WRITE_RAM                      0x24
+#define CMD_WRITE_VCOM_REGISTER            0x2C
+#define CMD_BORDER_WAVEFORM_CONTROL        0x3C
+#define CMD_SET_RAM_X_ADDRESS_COUNTER      0x4E
+#define CMD_SET_RAM_Y_ADDRESS_COUNTER      0x4F
 
 uint8_t buf[0x1200];
 
@@ -13,7 +37,7 @@ void epd_reset(){
     sleep_ms(10);
 }
 
-void epd_wait_until_idle(){
+void hal_display_wait_until_idle(){
     while (gpio_get(BUSY_PIN)){
         sleep_ms(10);
     }
@@ -35,7 +59,7 @@ void spi_ink_write_data(uint8_t cmd, uint8_t *data, uint16_t d_len) {
 }
 
 
-void epd_init(){
+void hal_display_init(){
     spi_init(spi0, 10 * 1000 * 1000);
     
     gpio_set_function(SPI_TX_PIN,  GPIO_FUNC_SPI);
@@ -74,7 +98,7 @@ void epd_init(){
     epd_reset();
 
     spi_ink_write_data(CMD_SW_RESET, NULL, 0);
-    epd_wait_until_idle();
+    hal_display_wait_until_idle();
     sleep_ms(100);
 
     buf[0] = 0x41; // VSH1 15V
@@ -101,39 +125,15 @@ void epd_init(){
 
     buf[0] = 0x78; // -3.0V
     spi_ink_write_data(CMD_WRITE_VCOM_REGISTER, buf, 1);
-    epd_wait_until_idle();
+    hal_display_wait_until_idle();
 }
 
-
-void epd_display_image(const uint8_t *framebuf){
-
-    // Set RAM pointers to 0
-    buf[0] = 0x00;
-    buf[1] = 0x00;
-    spi_ink_write_data(CMD_SET_RAM_X_ADDRESS_COUNTER, buf, 1);
-    
-
-    spi_ink_write_data(CMD_SET_RAM_Y_ADDRESS_COUNTER, buf, 2);
-
-    memcpy(buf, framebuf, 4000);
-    uint16_t size = (WIDTH*HEIGHT)/8;
-    spi_ink_write_data(CMD_WRITE_RAM, buf, size);
-    sleep_ms(10);
-
-
-    //Update the display
-    buf[0] = 0xF7; // Full refresh
-    spi_ink_write_data(CMD_DISPLAY_UPDATE_CONTROL, buf, 1);
-    spi_ink_write_data(CMD_MASTER_ACTIVATION, NULL, 0);
-
-    epd_wait_until_idle();
-}
-
-int epd_is_busy(void) {
+bool hal_display_is_busy(void) {
     return gpio_get(BUSY_PIN) == 1;
 }
 
-void epd_write_framebuffer(const uint8_t *framebuf) {
+void hal_display_write_framebuffer(const uint8_t *framebuf) {
+    // Set RAM pointers to 0
     buf[0] = 0x00;
     buf[1] = 0x00;
     spi_ink_write_data(CMD_SET_RAM_X_ADDRESS_COUNTER, buf, 1);     
@@ -148,7 +148,7 @@ void epd_write_framebuffer(const uint8_t *framebuf) {
 
 }
 
-void epd_trigger_refresh(void){
+void hal_display_trigger_refresh(void){
     buf[0] = 0xF7; // Full refresh
     spi_ink_write_data(CMD_DISPLAY_UPDATE_CONTROL, buf, 1);
     spi_ink_write_data(CMD_MASTER_ACTIVATION, NULL, 0);

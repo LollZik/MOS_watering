@@ -225,3 +225,24 @@ hal_network_get_ip_v4(void)
     struct netif *n = &cyw43_state.netif[CYW43_ITF_STA];
     return netif_ip4_addr(n)->addr;
 }
+
+void
+hal_network_lock(void)
+{
+    cyw43_arch_lwip_begin();
+}
+
+void
+hal_network_unlock(void)
+{
+    cyw43_arch_lwip_end();
+}
+
+void
+hal_network_flush(hal_net_conn_t conn)
+{
+    struct tcp_pcb *tpcb = (struct tcp_pcb *)conn;
+    if (tpcb != NULL) {
+        tcp_output(tpcb);
+    }
+}

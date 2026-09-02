@@ -94,3 +94,13 @@ hal_system_tight_loop(void)
 {
     tight_loop_contents();
 }
+
+void
+hal_system_get_board_id(uint8_t *out_bytes)
+{
+    pico_get_unique_board_id((pico_unique_board_id_t *)out_bytes);
+}
+
+void hal_system_init(void) {
+    stdio_init_all();
+}

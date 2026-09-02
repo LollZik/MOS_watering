@@ -1,10 +1,7 @@
 #include <stdio.h>
 #include <string.h>
-#include "pico/stdlib.h"
-#include "hardware/spi.h"
-#include "hardware/gpio.h"
 
-#include "ssd1680.h"
+#include "hal_display.h"
 #include "text_renderer.h"
 #include "sched.h"
 
@@ -24,13 +21,13 @@ typedef enum {
 static disp_state_t current_state = STATE_CHECK_DATA;
 
 int disp_init(void) {
-  epd_init();
+  hal_display_init();
   clear_buffer();
   draw_string(10, 10, "Waiting for data");
   draw_logo();
-  epd_write_framebuffer(framebuf);
-  epd_trigger_refresh();
-  epd_wait_until_idle();
+  hal_display_write_framebuffer(framebuf);
+  hal_display_trigger_refresh();
+  hal_display_wait_until_idle();
 
   return -1;
 }
@@ -42,6 +39,7 @@ int disp_task(void) {
                 return WAIT_TIME;
             }
             new_data = false;
+            
             clear_buffer();
             char buf[64];
             
@@ -55,14 +53,13 @@ int disp_task(void) {
             draw_string(5, 5, buf);
             draw_logo();
             
-            epd_write_framebuffer(framebuf);
-            epd_trigger_refresh();
-
+            hal_display_write_framebuffer(framebuf);
+            hal_display_trigger_refresh();
             current_state = STATE_WAIT_FOR_SCREEN;
             return 100;
-
+            
         case STATE_WAIT_FOR_SCREEN:
-            if (epd_is_busy()) {
+            if (hal_display_is_busy()) {
                 return 100;
             }
             current_state = STATE_CHECK_DATA;

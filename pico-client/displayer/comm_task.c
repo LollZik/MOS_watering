@@ -1,9 +1,10 @@
-#include "proto.h"
-#include "tcp_server.h"
-#include "lwip/tcp.h"
-#include "pico/cyw43_arch.h"
+#include <stdio.h>
+#include <string.h>
 
+#include "proto.h"
 #include "sched.h"
+#include "hal_server.h"
+#include "hal_network.h"
 
 #define WAIT_TIME 3000
 
@@ -13,7 +14,6 @@ uint8_t water_level;
 uint16_t temp_level;
 uint16_t moist_level;
 
-extern struct tcp_pcb *display_tcp;
 
 extern packet_t *rx_packet;
 extern volatile bool raw_packet_ready;
@@ -28,9 +28,10 @@ int comm_task(void) {
         if (rx_packet != NULL && rx_packet->header.cmd_ack == GET_WATERING_CTX_CMD) {
             
             get_watering_ctx_t ctx;
-            cyw43_arch_lwip_begin();
+
+            hal_network_lock();
             memcpy(&ctx, &rx_packet->data.get_ctx, sizeof(get_watering_ctx_t));
-            cyw43_arch_lwip_end();
+            hal_network_unlock();
     
 
             battery_level = ctx.battery_lvl;
@@ -48,14 +49,14 @@ int comm_task(void) {
     tx_packet.header.msg_id = ++msg_id_counter;
     tx_packet.header.length = 0;
 
-    cyw43_arch_lwip_begin();
+    hal_network_lock();
 
-    if (display_tcp != NULL) {
-        tcp_write(display_tcp, &tx_packet, HEADER_LEN, TCP_WRITE_FLAG_COPY);
-        tcp_output(display_tcp);
+    if (display_conn != NULL) {
+        hal_network_send(display_conn, &tx_packet, HEADER_LEN);
+        hal_network_flush(display_conn);
     }
     
-    cyw43_arch_lwip_end();
+    hal_network_unlock();
 
     return 500;
 }
