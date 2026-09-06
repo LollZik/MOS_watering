@@ -1,6 +1,7 @@
 #include <ctype.h>
 #include <stdio.h>
-
+#include <stdlib.h>
+#include <string.h>
 #include "hardware/i2c.h"
 #include "hardware/gpio.h"
 
@@ -174,7 +175,7 @@ void SSD1306_init() {
 }
 
 void
-SSD1306_disable(void)
+hal_qled_disable(void)
 {
   uint8_t cmd = SSD1306_SET_DISP & ~0x01; // turn display off
 
@@ -310,7 +311,7 @@ write_string(uint8_t *buf, int16_t x, int16_t y, char *str)
 }
 
 int
-init_qled(void)
+hal_qled_init(void)
 {
   i2c_init(I2C_INST, SSD1306_I2C_CLK * 1000);
   gpio_set_function(SSD_SDA_PIN, GPIO_FUNC_I2C);
@@ -340,7 +341,7 @@ init_qled(void)
 }
 
 void
-set_string(const char *text, const uint8_t column)
+hal_qled_set_string(const char *text, const uint8_t column)
 {
   assert(column <= 3);
 
@@ -348,7 +349,7 @@ set_string(const char *text, const uint8_t column)
 }
 
 void
-draw(void)
+hal_qled_draw(void)
 {
   for (uint32_t i = 0 ;i < 4; i++) {
       write_string(buf, 5, i*8, text_buf[i]);

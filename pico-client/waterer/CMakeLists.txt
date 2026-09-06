@@ -24,12 +24,18 @@ function(create_slot_target slot_name flash_offset)
     disp_task.c
     uart_task.c
     gpio_irq.c
-    ../common/tcp_client.c
+    hal/src/hal_adc.c
+    hal/src/hal_gpio.c
+    hal/src/hal_qled_ssd1306.c
+    hal/src/hal_flash.c
     ../common/dispatcher.c
     ../common/sched.c
     ../common/wd_task.c
-    ../common/shared_mem.c
-    ${CMAKE_SOURCE_DIR}/common/crc.c
+    ../common/hal/src/hal_network.c
+    ../common/hal/src/hal_wlan.c
+    ../common/hal/src/hal_system.c
+    ../common/hal/src/hal_memory.c
+    ../common/hal/src/hal_crc.c
     ${CMAKE_SOURCE_DIR}/../common/helpers.c
   )
 
@@ -41,6 +47,8 @@ function(create_slot_target slot_name flash_offset)
     ${CMAKE_CURRENT_LIST_DIR}/common/
     ${CMAKE_CURRENT_LIST_DIR}/..
     ${CMAKE_CURRENT_LIST_DIR}/../common/
+    ${CMAKE_CURRENT_LIST_DIR}/hal/include/
+    ${CMAKE_CURRENT_LIST_DIR}/../common/hal/include/
   )
 
   target_link_libraries(${target_name}
@@ -53,8 +61,9 @@ function(create_slot_target slot_name flash_offset)
     hardware_rosc
     hardware_irq
     hardware_spi
-    hardware_adc
     hardware_watchdog
+    hardware_flash
+    hardware_sync
   )
 
   # Create linker script with correct origin

@@ -1,27 +1,23 @@
 #include <string.h>
+#include <stdio.h>
+#include <assert.h>
 
-#include "pico/time.h"
-#include "pico/unique_id.h"
-#include "pico/cyw43_arch.h"
-
-#include "hardware/flash.h"
-#include "hardware/sync.h"
-#include "shared_mem.h"
+#include "helpers.h"
+#include "hal_memory.h"
+#include "hal_flash.h"
+#include "hal_system.h"
+#include "hal_network.h"
 
 #include "dispatch_table.h"
 #include "dispatcher.h"
 
 #include "water_ctx.h"
-
 #include "sched.h"
-#include "reset.h"
 
-#define SLOT_SIZE (SLOT1_ORIGIN - SLOT0_ORIGIN)
-
-extern void w_get_watering_stats(get_watering_ctx_t *ctx);
+#define PHYSICAL_SLOT_SIZE (SLOT1_ORIGIN - SLOT0_ORIGIN)
 
 volatile bool displayer_ip_received = false;
-ip_addr_t displayer_ip = {0};
+uint32_t displayer_ip = 0;
 
 
 handle_packet dispatch_table[256] = {
@@ -47,30 +43,6 @@ handle_packet dispatch_table[256] = {
   [PEER_DISCOVERY_CMD]      = peer_discovery_handle,
 };
 
-static inline int
-set_running_slot(uint8_t slot_id)
-{
-  shared_mem_t cpy;
-  memcpy(&cpy, &shared, sizeof(shared_mem_t));
-
-  if (slot_id > 1) {
-    return -1;
-  }
-
-  uint32_t ints = save_and_disable_interrupts();
-
-  flash_range_erase((uint32_t)&shared, FLASH_PAGE_SIZE);
-
-  cpy.running_slot_id = slot_id;
-  memcpy(&shared, &cpy, sizeof(shared_mem_t));
-
-  flash_range_program((uint32_t) &shared, (const uint8_t *)&cpy, FLASH_PAGE_SIZE);
-
-  restore_interrupts(ints);
-
-  return 0;
-}
-
 uint8_t
 flash_erase(packet_t *packet, packet_t *out_packet, uint16_t *out_len)
 {
@@ -80,7 +52,7 @@ flash_erase(packet_t *packet, packet_t *out_packet, uint16_t *out_len)
     return ACK_LEN_ERR;
   }
 
-  if ( addr + FLASH_PAGE_SIZE > CUR_SLOT_ORIGIN && addr < CUR_SLOT_ORIGIN + SLOT_SIZE ) {
+  if ( addr + FLASH_PAGE_SIZE > CUR_SLOT_ORIGIN && addr < CUR_SLOT_ORIGIN + PHYSICAL_SLOT_SIZE ) {
     return ACK_PARAM_ERR;
   }
 
@@ -91,11 +63,7 @@ flash_erase(packet_t *packet, packet_t *out_packet, uint16_t *out_len)
   if ( addr % FLASH_PAGE_SIZE != 0) {
     return ACK_PARAM_ERR;
   }
-  uint32_t ints = save_and_disable_interrupts();
-
-  flash_range_erase(addr, FLASH_PAGE_SIZE);
-  
-  restore_interrupts(ints);
+  hal_flash_erase_page(addr);
 
   *out_len = 0;
 
@@ -111,7 +79,7 @@ flash_write(packet_t *packet, packet_t *out_packet, uint16_t *out_len)
     return ACK_LEN_ERR;
   }
 
-  if ( addr + MAX_FLASH_DATA >= CUR_SLOT_ORIGIN && addr < CUR_SLOT_ORIGIN + SLOT_SIZE ) {
+  if ( addr + MAX_FLASH_DATA >= CUR_SLOT_ORIGIN && addr < CUR_SLOT_ORIGIN + PHYSICAL_SLOT_SIZE ) {
     return ACK_PARAM_ERR;
   }
 
@@ -119,11 +87,7 @@ flash_write(packet_t *packet, packet_t *out_packet, uint16_t *out_len)
     return ACK_PARAM_ERR;
   }
 
-  uint32_t ints = save_and_disable_interrupts();
-
-  flash_range_program(addr, packet->data.flash_write.data, MAX_FLASH_DATA);
-  
-  restore_interrupts(ints);
+  hal_flash_write_page(addr, packet->data.flash_write.data, MAX_FLASH_DATA);
 
   *out_len = 0;
 
@@ -177,7 +141,7 @@ set_active_slot_handle(packet_t *in_packet, packet_t *out_packet, uint16_t *out_
 
   set_active_slot_t *req = (set_active_slot_t *)in_packet->data.buf;
 
-  if (set_running_slot(req->slot_id)) {
+  if (hal_flash_set_active_slot(req->slot_id)) {
     return ACK_PARAM_ERR;
   }
 
@@ -195,7 +159,7 @@ reset_handle(packet_t *in_packet, packet_t *out_packet, uint16_t *out_len)
 
   printf("Rebooting pico\n");
 
-  reset_pico();
+  hal_system_reset();
 
   return ACK_OK;
 }
@@ -221,8 +185,8 @@ read_sw_version_handle(packet_t *in_packet, packet_t *out_packet, uint16_t *out_
 uint8_t
 set_name_handle(packet_t *in_packet, packet_t *out_packet, uint16_t *out_len)
 {
-  shared_mem_t cpy;
-  memcpy(&cpy, &shared, sizeof(shared_mem_t));
+  hal_config_t cpy;
+  memcpy(&cpy, &shared, sizeof(hal_config_t));
 
   if (in_packet->header.length > MAX_NAME_LEN) {
     return -1;
@@ -230,14 +194,11 @@ set_name_handle(packet_t *in_packet, packet_t *out_packet, uint16_t *out_len)
 
   strncpy(cpy.name, in_packet->data.set_name.name, MAX_NAME_LEN);
 
-  uint32_t ints = save_and_disable_interrupts();
-
-  flash_range_erase((uint32_t) &shared, FLASH_PAGE_SIZE);
-  flash_range_program((uint32_t) &shared, (const uint8_t *)&cpy, FLASH_PAGE_SIZE);
-
-  restore_interrupts(ints);
+  hal_flash_erase_page((uint32_t) &shared);
   
-  return ACK_OK;
+  uint8_t buf[256] = {0};
+  memcpy(buf, &cpy, sizeof(hal_config_t));
+  hal_flash_write_page((uint32_t) &shared, buf, 256);
 }
 
 uint8_t
@@ -249,12 +210,10 @@ get_info_handle(packet_t *in_packet, packet_t *out_packet, uint16_t *out_len)
     return ACK_PARAM_ERR;
   }
 
-  pico_get_unique_board_id((pico_unique_board_id_t *) &out_packet->data.get_info.uuid);
+  hal_system_get_board_id((uint8_t *)&out_packet->data.get_info.uuid);
   
   out_packet->data.get_info.role = ROLE_WATERER;
-
-  struct netif *n = &cyw43_state.netif[CYW43_ITF_STA];
-  out_packet->data.get_info.ip = netif_ip4_addr(n)->addr;
+  out_packet->data.get_info.ip = hal_network_get_ip_v4();
   
   *out_len = sizeof(get_info_t);
 
@@ -268,7 +227,7 @@ get_watering_ctx(packet_t *in_packet, packet_t *out_packet, uint16_t *out_len)
   out_packet->data.get_ctx.battery_lvl = 0xA5;
   out_packet->data.get_ctx.moisture_lvl = get_moist_lvl();
   out_packet->data.get_ctx.temp_lvl = get_temp_lvl();
-  out_packet->data.get_ctx.uptime = to_ms_since_boot(get_absolute_time());
+  out_packet->data.get_ctx.uptime = (uint32_t)(hal_system_get_time_us() / 1000ULL);
 
   *out_len = sizeof(get_watering_ctx_t);
   
@@ -342,8 +301,7 @@ peer_discovery_handle(packet_t *in_packet, packet_t *out_packet, uint16_t *out_l
   peer_discovery_t *resp = &(in_packet->data.peer_discovery);
   
   if (resp->role == ROLE_DISPLAYER) {
-    ip_addr_set_ip4_u32(&displayer_ip, resp->ip);
-    
+    displayer_ip = resp->ip;
     displayer_ip_received = true;
   }
   return ACK_OK;
