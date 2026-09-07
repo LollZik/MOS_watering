@@ -34,12 +34,21 @@ add_compile_options(
     -fno-exceptions  # If not using C++ exceptions
 )
 
+
+if (TARGET picotool)
+    set(PICOTOOL_CMD $<TARGET_FILE:picotool>)
+elseif(PICOTOOL_EXECUTABLE)
+    set(PICOTOOL_CMD ${PICOTOOL_EXECUTABLE})
+else()
+    set(PICOTOOL_CMD picotool)
+endif()
+
 add_custom_command(
     OUTPUT ${COMBINED_UF2}
     COMMAND ${CMAKE_SOURCE_DIR}/tools/combine.sh ${BOOTLOADER_ORIGIN} ${SLOT0_ORIGIN}
                                                  ${SLOT1_ORIGIN} ${SLOT2_ORIGIN}
                                                  ${CRC_SEED}
-                                                 $<TARGET_FILE:picotool>
+                                                 ${PICOTOOL_CMD}
     DEPENDS
         ${CMAKE_BINARY_DIR}/bootloader/bootloader.elf
         ${CMAKE_BINARY_DIR}/waterer/watering_slot0.elf
