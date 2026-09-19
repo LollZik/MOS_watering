@@ -48,11 +48,11 @@ jobs:
       - name: Compile Firmware and Server
         run: |
             docker run --rm -v ${{ github.workspace }}:/workspace \
-                -e WIFI_SSID="${{ secrets.WIFI_SSID }}" \
-                -e WIFI_PASS="${{ secrets.WIFI_PASS }}" \
-                -e TEST_TCP_SERVER_IP="${{ secrets.TEST_TCP_SERVER_IP }}" \
-                -e API_KEY="${{ secrets.API_KEY }}" \
-                -e REDIS_PASS="${{ secrets.REDIS_PASS }}" \
+                -e WIFI_SSID="${{ secrets.WIFI_SSID || 'MOCK_SSID' }}" \
+                -e WIFI_PASS="${{ secrets.WIFI_PASS || 'MOCK_PASS' }}" \
+                -e TEST_TCP_SERVER_IP="${{ secrets.TEST_TCP_SERVER_IP || '127.0.0.1' }}" \
+                -e API_KEY="${{ secrets.API_KEY || 'MOCK_API_KEY' }}" \
+                -e REDIS_PASS="${{ secrets.REDIS_PASS || 'MOCK_REDIS_PASS' }}" \
                 -e ENDPOINT="localhost" \
                 water-builder bash -c "
                 git config --global --add safe.directory /workspace && \
