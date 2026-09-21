@@ -1,8 +1,7 @@
-#include "hardware/watchdog.h"
-
 #include <stdio.h>
 
 #include "sched.h"
+#include "hal_system.h"
 
 #define WATCHDOG_TIMEOUT_MS 8000
 #define WATCHDOG_UPDATE_MS  4000
@@ -10,7 +9,7 @@
 int
 wd_task(void)
 {
-  watchdog_update();
+  hal_system_watchdog_feed();
 
   return WATCHDOG_UPDATE_MS;
 }
@@ -18,7 +17,7 @@ wd_task(void)
 int
 wd_init(void)
 {
-  watchdog_enable(WATCHDOG_TIMEOUT_MS, true);
+  hal_system_watchdog_init(WATCHDOG_TIMEOUT_MS);
 
   return 0;
 }
